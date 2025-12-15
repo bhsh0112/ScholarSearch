@@ -64,7 +64,8 @@ export async function POST(req: Request) {
       name: parsed.data.name,
       query: parsed.data.query,
       schedule: parsed.data.schedule,
-      filters: parsed.data.filters ?? null,
+      // filters 为 JSON 字段：无过滤条件时使用 undefined，避免传入普通 null
+      filters: parsed.data.filters ?? undefined,
       active: true,
     },
     select: {
