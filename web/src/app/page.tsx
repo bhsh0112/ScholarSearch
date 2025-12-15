@@ -35,7 +35,6 @@ export default function Home() {
   const [notifLoading, setNotifLoading] = useState(false);
 
   const total = works.length;
-  // 增加到 100 个预览，体验更好
   const preview = useMemo(() => works.slice(0, 100), [works]);
 
   function buildFilters() {
@@ -193,9 +192,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-zinc-50/50 pb-20 dark:bg-black/20">
-      <div className="mx-auto max-w-5xl px-4 py-8 md:px-6">
-        
-        {/* Header Section */}
+      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
         <div className="mb-8 text-center md:text-left">
           <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 md:text-4xl">
             ScholarSearch <span className="text-blue-600 dark:text-blue-400">V1</span>
@@ -205,103 +202,122 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Search Section */}
         <div className="sticky top-20 z-40 mb-6">
-           <SearchInput
-             value={q}
-             onChange={setQ}
-             onSearch={runSearch}
-             loading={loading}
-             onSave={saveSearch}
-             saving={saving}
-             canSave={!!q.trim()}
-             stats={stats}
-             total={total}
-           />
-           {(saveError || saveOk || error) && (
-             <div className="absolute top-full left-0 right-0 mt-2 flex justify-center">
-                {error && <div className="rounded-full bg-red-100 px-4 py-1 text-xs font-medium text-red-600 shadow-sm">{error}</div>}
-                {saveError && <div className="rounded-full bg-red-100 px-4 py-1 text-xs font-medium text-red-600 shadow-sm">{saveError}</div>}
-                {saveOk && <div className="rounded-full bg-emerald-100 px-4 py-1 text-xs font-medium text-emerald-600 shadow-sm">{saveOk}</div>}
-             </div>
-           )}
-        </div>
-
-        {/* Filters & AI */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
-            <SearchFilters
-              sourceOpenAlex={sourceOpenAlex}
-              setSourceOpenAlex={setSourceOpenAlex}
-              sourceCrossref={sourceCrossref}
-              setSourceCrossref={setSourceCrossref}
-              sourceArxiv={sourceArxiv}
-              setSourceArxiv={setSourceArxiv}
-              yearFrom={yearFrom}
-              setYearFrom={setYearFrom}
-              yearTo={yearTo}
-              setYearTo={setYearTo}
-              venues={venues}
-              setVenues={setVenues}
-              authors={authors}
-              setAuthors={setAuthors}
-              perSource={perSource}
-              setPerSource={setPerSource}
-            />
-             <AiAssistant
-              aiLoading={aiLoading}
-              aiError={aiError}
-              aiDraft={aiDraft}
-              setAiDraft={setAiDraft}
-              aiExpand={aiExpand}
-              useAiDraft={useAiDraft}
-              q={q}
-            />
-
-            {/* Results List */}
-            <div className="space-y-4">
-               <div className="flex items-center justify-between px-1">
-                 <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">检索结果</h2>
-                 {preview.length > 0 && (
-                   <span className="text-xs text-zinc-500">显示前 {preview.length} 条</span>
-                 )}
-               </div>
-               
-              {loading ? (
-                // Simple Skeleton Loading
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-40 w-full animate-pulse rounded-2xl bg-zinc-200 dark:bg-white/5" />
-                  ))}
+          <SearchInput
+            value={q}
+            onChange={setQ}
+            onSearch={runSearch}
+            loading={loading}
+            onSave={saveSearch}
+            saving={saving}
+            canSave={!!q.trim()}
+            stats={stats}
+            total={total}
+          />
+          {(saveError || saveOk || error) && (
+            <div className="absolute top-full left-0 right-0 mt-2 flex justify-center">
+              {error && (
+                <div className="rounded-full bg-red-100 px-4 py-1 text-xs font-medium text-red-600 shadow-sm">
+                  {error}
                 </div>
-              ) : preview.length > 0 ? (
-                preview.map((w, idx) => (
-                  <SearchResultCard
-                    key={`${w.doi ?? w.arxivId ?? w.title}-${idx}`}
-                    work={w}
-                  />
-                ))
-              ) : (
-                 !loading && stats && (
-                    <div className="flex flex-col items-center justify-center py-12 text-center text-zinc-500">
-                        <p>未找到相关结果</p>
-                        <p className="text-xs">请尝试放宽筛选条件或更换关键词</p>
-                    </div>
-                 )
+              )}
+              {saveError && (
+                <div className="rounded-full bg-red-100 px-4 py-1 text-xs font-medium text-red-600 shadow-sm">
+                  {saveError}
+                </div>
+              )}
+              {saveOk && (
+                <div className="rounded-full bg-emerald-100 px-4 py-1 text-xs font-medium text-emerald-600 shadow-sm">
+                  {saveOk}
+                </div>
               )}
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Sidebar: Notifications */}
-          <div className="lg:col-span-1">
-             <div className="sticky top-40">
+        <div className="relative">
+          {/* 右侧通知栏：仅在超宽屏(2xl)把它放到主容器右侧的空白区域，不影响内容右边界对齐 */}
+          <div className="hidden 2xl:block">
+            <div className="absolute right-0 top-0 w-72 translate-x-[calc(100%+1.5rem)]">
+              <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-auto rounded-2xl">
                 <NotificationPanel
                   notifs={notifs}
                   loading={notifLoading}
                   refresh={refreshNotifications}
                   markRead={markRead}
                 />
-             </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-8">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <div className="lg:col-span-8">
+              <SearchFilters
+                sourceOpenAlex={sourceOpenAlex}
+                setSourceOpenAlex={setSourceOpenAlex}
+                sourceCrossref={sourceCrossref}
+                setSourceCrossref={setSourceCrossref}
+                sourceArxiv={sourceArxiv}
+                setSourceArxiv={setSourceArxiv}
+                yearFrom={yearFrom}
+                setYearFrom={setYearFrom}
+                yearTo={yearTo}
+                setYearTo={setYearTo}
+                venues={venues}
+                setVenues={setVenues}
+                authors={authors}
+                setAuthors={setAuthors}
+                perSource={perSource}
+                setPerSource={setPerSource}
+              />
+            </div>
+            <div className="lg:col-span-4">
+              <AiAssistant
+                aiLoading={aiLoading}
+                aiError={aiError}
+                aiDraft={aiDraft}
+                setAiDraft={setAiDraft}
+                aiExpand={aiExpand}
+                useAiDraft={useAiDraft}
+                q={q}
+              />
+            </div>
+            <div className="lg:col-span-2 2xl:hidden">
+              <NotificationPanel
+                notifs={notifs}
+                loading={notifLoading}
+                refresh={refreshNotifications}
+                markRead={markRead}
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-4 flex items-center justify-between px-1">
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">检索结果</h2>
+              {preview.length > 0 ? <span className="text-xs text-zinc-500">显示前 {preview.length} 条</span> : null}
+            </div>
+
+            {loading ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-44 w-full animate-pulse rounded-2xl bg-zinc-200 dark:bg-white/5" />
+                ))}
+              </div>
+            ) : preview.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {preview.map((w, idx) => (
+                  <SearchResultCard key={`${w.doi ?? w.arxivId ?? w.title}-${idx}`} work={w} />
+                ))}
+              </div>
+            ) : !loading && stats ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center text-zinc-500">
+                <p>未找到相关结果</p>
+                <p className="text-xs">请尝试放宽筛选条件或更换关键词</p>
+              </div>
+            ) : null}
+          </div>
           </div>
         </div>
       </div>

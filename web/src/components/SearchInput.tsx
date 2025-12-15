@@ -24,8 +24,8 @@ export function SearchInput({
   total,
 }: SearchInputProps) {
   return (
-    <div className="relative mx-auto max-w-3xl">
-      <div className="group relative z-10 flex items-center overflow-hidden rounded-full bg-white p-2 shadow-xl shadow-black/5 ring-1 ring-zinc-900/5 transition-all focus-within:ring-2 focus-within:ring-blue-500/20 dark:bg-zinc-900 dark:ring-white/10 dark:focus-within:ring-blue-500/40">
+    <div className="group relative w-full">
+      <div className="relative z-10 flex items-center overflow-hidden rounded-full bg-white p-2 shadow-xl shadow-black/5 ring-1 ring-zinc-900/5 transition-all focus-within:ring-2 focus-within:ring-blue-500/20 dark:bg-zinc-900 dark:ring-white/10 dark:focus-within:ring-blue-500/40">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center text-zinc-400">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -87,7 +87,6 @@ export function SearchInput({
           </button>
         </div>
       </div>
-      {/* 底部光晕效果 */}
       <div className="absolute -inset-1 -z-10 rounded-full bg-gradient-to-r from-blue-500 via-violet-500 to-emerald-500 opacity-0 blur transition duration-500 group-focus-within:opacity-20" />
     </div>
   );
