@@ -74,6 +74,18 @@ npm run worker
 - 影响 `POST /api/search` 的返回结果（去重后再过滤）
 - 随“保存检索”一起写入 `SavedSearch.filters`，并在追踪任务中复用
 
+## AI：自由表述 → 检索式草案 + filters（可选）
+V1 支持点击首页的“AI 生成”，把自由表述交给第三方 LLM（OpenAI-compatible）生成：
+- **queryDraft**：可编辑的“检索式草案”
+- **filters（可选）**：作者/venue/年份/来源等结构化限制
+
+配置方式：在 `web/.env` 中加入（参考 `web/env.example`）：
+- `LLM_BASE_URL`：例如 `https://api.openai.com` 或其他兼容服务的 base url
+- `LLM_API_KEY`
+- `LLM_MODEL`
+
+隐私提示：启用后会把用户输入的 query 发送给第三方模型服务。
+
 ## 邮件通知（可选）
 在 `web/.env` 中配置：
 - `SMTP_HOST`

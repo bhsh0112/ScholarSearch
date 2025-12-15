@@ -16,6 +16,9 @@ type Work = {
 
 export default function Home() {
   const [q, setQ] = useState("retrieval augmented generation survey");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiDraft, setAiDraft] = useState<string>("");
   const [perSource, setPerSource] = useState(15);
   const [sourceOpenAlex, setSourceOpenAlex] = useState(true);
   const [sourceCrossref, setSourceCrossref] = useState(true);
@@ -64,6 +67,59 @@ export default function Home() {
       venues: venueList.length > 0 ? venueList : undefined,
       authors: authorList.length > 0 ? authorList : undefined,
     };
+  }
+
+  function applyFiltersFromAi(filters: unknown) {
+    if (!filters || typeof filters !== "object") return;
+    const f = filters as {
+      sources?: unknown;
+      yearFrom?: unknown;
+      yearTo?: unknown;
+      venues?: unknown;
+      authors?: unknown;
+    };
+    const sources = Array.isArray(f.sources) ? (f.sources as string[]) : [];
+    setSourceOpenAlex(sources.length === 0 ? true : sources.includes("OPENALEX"));
+    setSourceCrossref(sources.length === 0 ? true : sources.includes("CROSSREF"));
+    setSourceArxiv(sources.length === 0 ? true : sources.includes("ARXIV"));
+    setYearFrom(typeof f.yearFrom === "number" ? String(f.yearFrom) : "");
+    setYearTo(typeof f.yearTo === "number" ? String(f.yearTo) : "");
+    setVenues(Array.isArray(f.venues) ? (f.venues as string[]).join(", ") : "");
+    setAuthors(Array.isArray(f.authors) ? (f.authors as string[]).join(", ") : "");
+  }
+
+  async function aiExpand() {
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/ai/expand", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ q }),
+      });
+      const json = await res.json();
+      if (!json?.ok) {
+        const code = json?.error || "ai_failed";
+        const message = json?.message || code;
+        if (code === "llm_not_configured") {
+          throw new Error("LLM 未配置：请在 web/.env 中设置 LLM_BASE_URL/LLM_API_KEY/LLM_MODEL");
+        }
+        throw new Error(message);
+      }
+      const draft = json?.result?.queryDraft ?? "";
+      setAiDraft(draft);
+      applyFiltersFromAi(json?.result?.filters);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "unknown_error";
+      setAiError(message);
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  function useAiDraft() {
+    if (!aiDraft.trim()) return;
+    setQ(aiDraft.trim());
   }
 
   async function refreshNotifications() {
@@ -176,6 +232,42 @@ export default function Home() {
                 max={50}
               />
             </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold">AI：生成检索式草案 + filters</div>
+                <div className="mt-1 text-xs text-zinc-600">
+                  会把你的自由表述发送到第三方 LLM（需在环境变量中配置），返回结果可编辑后再应用。
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={aiExpand}
+                  disabled={aiLoading || !q.trim()}
+                  className="rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
+                >
+                  {aiLoading ? "生成中…" : "AI 生成"}
+                </button>
+                <button
+                  onClick={useAiDraft}
+                  disabled={!aiDraft.trim()}
+                  className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium disabled:opacity-60"
+                >
+                  应用草案到查询
+                </button>
+              </div>
+            </div>
+            {aiError ? <div className="mt-2 text-sm text-red-600">AI 错误：{aiError}</div> : null}
+            <label className="mt-3 block text-xs font-medium text-zinc-700">检索式草案（可编辑）</label>
+            <textarea
+              value={aiDraft}
+              onChange={(e) => setAiDraft(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-900/10"
+              rows={3}
+              placeholder="点击“AI 生成”后会在这里出现 queryDraft"
+            />
           </div>
 
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-6">
