@@ -98,13 +98,19 @@ export async function POST(req: Request) {
         for (const s of w.sources) {
           await prisma.workSource.upsert({
             where: { source_sourceId: { source: s.source, sourceId: s.sourceId } },
-            update: { workId: work.id, url: s.url ?? null, raw: (s.raw as unknown) ?? null },
+            update: {
+              workId: work.id,
+              url: s.url ?? null,
+              // raw 为 JSON 字段：无数据时使用 undefined，避免传入普通 null
+              raw: (s.raw as unknown) ?? undefined,
+            },
             create: {
               workId: work.id,
               source: s.source,
               sourceId: s.sourceId,
               url: s.url ?? null,
-              raw: (s.raw as unknown) ?? null,
+              // 同上
+              raw: (s.raw as unknown) ?? undefined,
             },
           });
         }
@@ -146,9 +152,10 @@ export async function POST(req: Request) {
         data: {
           savedSearchId: ss.id,
           query: ss.query,
-          filters: ss.filters ?? null,
+          // filters / stats 为 JSON 字段：无数据时使用 undefined，避免传入普通 null
+          filters: ss.filters ?? undefined,
           sources: { openalex: true, crossref: true, arxiv: true },
-          stats: stats ?? null,
+          stats: (stats as unknown) ?? undefined,
           error: runError,
         },
       });
