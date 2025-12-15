@@ -2,11 +2,7 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
-  --muted: #f4f4f5;
-  --border: rgba(0, 0, 0, 0.10);
-  --card: rgba(255, 255, 255, 0.75);
-  --card-strong: rgba(255, 255, 255, 0.92);
+  --foreground: #18181b; /* zinc-900 */
 }
 
 @theme inline {
@@ -18,62 +14,52 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --muted: rgba(255, 255, 255, 0.06);
-    --border: rgba(255, 255, 255, 0.10);
-    --card: rgba(10, 10, 10, 0.65);
-    --card-strong: rgba(10, 10, 10, 0.90);
+    --background: #09090b; /* zinc-950 */
+    --foreground: #f4f4f5; /* zinc-100 */
   }
 }
 
 body {
-  background: radial-gradient(circle at 0 0, rgba(59, 130, 246, 0.25), transparent 55%),
-    radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.25), transparent 55%),
-    var(--background);
+  background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* 手动暗色模式（优先于系统） */
 html.dark {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --muted: rgba(255, 255, 255, 0.06);
-  --border: rgba(255, 255, 255, 0.10);
-  --card: rgba(10, 10, 10, 0.65);
-  --card-strong: rgba(10, 10, 10, 0.90);
+  --background: #09090b; /* zinc-950 */
+  --foreground: #f4f4f5; /* zinc-100 */
 }
 
 html.light {
   --background: #ffffff;
-  --foreground: #171717;
-  --muted: #f4f4f5;
-  --border: rgba(0, 0, 0, 0.10);
-  --card: rgba(255, 255, 255, 0.75);
-  --card-strong: rgba(255, 255, 255, 0.92);
+  --foreground: #18181b; /* zinc-900 */
 }
 
 ::selection {
-  background: rgba(99, 102, 241, 0.25);
+  background: rgba(99, 102, 241, 0.2); /* indigo-500/20 */
+  color: inherit;
 }
 
-/* 让滚动条更精致一些 */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.8) transparent;
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-*::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-*::-webkit-scrollbar-track {
+::-webkit-scrollbar-track {
   background: transparent;
 }
 
-*::-webkit-scrollbar-thumb {
-  background-color: rgba(148, 163, 184, 0.8);
-  border-radius: 999px;
+::-webkit-scrollbar-thumb {
+  background-color: rgba(161, 161, 170, 0.3); /* zinc-400/30 */
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(161, 161, 170, 0.5); /* zinc-400/50 */
 }
