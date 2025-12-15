@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: scholarsearch-postgres
+    environment:
+      POSTGRES_USER: scholar
+      POSTGRES_PASSWORD: scholar
+      POSTGRES_DB: scholarsearch
+    ports:
+      - "5432:5432"
+    volumes:
+      - scholarsearch_pgdata:/var/lib/postgresql/data
+
+volumes:
+  scholarsearch_pgdata:
+
+

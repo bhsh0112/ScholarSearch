@@ -1,0 +1,171 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// 数据源枚举：V1 仅接入开放英文库
+enum WorkSourceType {
+  OPENALEX
+  CROSSREF
+  ARXIV
+}
+
+/// 任务调度：用于 SavedSearch 的追踪频率
+enum SavedSearchSchedule {
+  MANUAL
+  DAILY
+  WEEKLY
+}
+
+/// 通知类型：V1 只有“追踪到新论文”
+enum NotificationType {
+  NEW_WORKS
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  projects      Project[]
+  notifications Notification[]
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  savedSearches SavedSearch[]
+
+  @@index([userId])
+}
+
+/// 保存检索：用于日常/每周追踪增量
+model SavedSearch {
+  id        String   @id @default(cuid())
+  name      String
+  query     String
+  filters   Json?
+  active    Boolean  @default(true)
+  schedule  SavedSearchSchedule @default(DAILY)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// 上次追踪检查时间（用于差分）
+  lastCheckedAt DateTime?
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  runs           SearchRun[]
+  savedSearchWorks SavedSearchWork[]
+
+  @@index([projectId])
+  @@index([active, schedule, lastCheckedAt])
+}
+
+/// 每一次检索/追踪运行的记录（用于可复现与统计）
+model SearchRun {
+  id        String   @id @default(cuid())
+  runAt     DateTime @default(now())
+  query     String
+  filters   Json?
+  sources   Json?
+  stats     Json?
+  error     String?
+
+  savedSearchId String?
+  savedSearch   SavedSearch? @relation(fields: [savedSearchId], references: [id], onDelete: SetNull)
+
+  @@index([savedSearchId, runAt])
+}
+
+/// 统一论文实体（canonical work）
+model Work {
+  id        String   @id @default(cuid())
+  title     String
+  abstract  String?
+  year      Int?
+  venue     String?
+  url       String?
+
+  /// 标识符（用于高精度去重）
+  doi       String?  @unique
+  arxivId   String?  @unique
+  openalexId String? @unique
+
+  /// 归一化字段（用于标题相似去重）
+  normalizedTitle String
+
+  authors Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sources WorkSource[]
+  savedSearchWorks SavedSearchWork[]
+
+  @@index([year])
+  @@index([normalizedTitle])
+}
+
+/// 单条来源记录：保留每个数据源的原始/半原始信息，便于可追溯与后续修复
+model WorkSource {
+  id        String   @id @default(cuid())
+  source    WorkSourceType
+  sourceId  String
+  url       String?
+  raw       Json?
+  fetchedAt DateTime @default(now())
+
+  workId String
+  work   Work @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  @@unique([source, sourceId])
+  @@index([workId])
+}
+
+/// 追踪集合中的“已见过”关系：用于差分（new works）
+model SavedSearchWork {
+  id        String   @id @default(cuid())
+  firstSeenAt DateTime @default(now())
+
+  savedSearchId String
+  savedSearch   SavedSearch @relation(fields: [savedSearchId], references: [id], onDelete: Cascade)
+
+  workId String
+  work   Work @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  @@unique([savedSearchId, workId])
+  @@index([savedSearchId, firstSeenAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      NotificationType
+  title     String
+  body      String?
+  data      Json?
+  createdAt DateTime @default(now())
+  readAt    DateTime?
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
