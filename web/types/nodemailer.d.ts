@@ -5,7 +5,26 @@
  *   npm install --save-dev @types/nodemailer
  */
 declare module "nodemailer" {
-  const nodemailer: any;
+  export type SendMailOptions = {
+    from?: string;
+    to: string;
+    subject: string;
+    text?: string;
+    html?: string;
+  };
+
+  export type Transporter = {
+    sendMail: (options: SendMailOptions) => Promise<unknown>;
+  };
+
+  export type TransportOptions = unknown;
+
+  export function createTransport(options: TransportOptions): Transporter;
+
+  const nodemailer: {
+    createTransport: typeof createTransport;
+  };
+
   export default nodemailer;
 }
 

@@ -1,5 +1,30 @@
 import React from "react";
 
+interface SourceTagProps {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}
+
+/**
+ * 数据来源快速切换标签。
+ */
+function SourceTag({ label, checked, onChange }: SourceTagProps) {
+  return (
+    <button
+      onClick={() => onChange(!checked)}
+      className={`relative flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+        checked
+          ? "bg-zinc-900 text-white shadow-md shadow-zinc-500/20 dark:bg-white dark:text-zinc-900"
+          : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+      }`}
+    >
+      <div className={`h-1.5 w-1.5 rounded-full ${checked ? "bg-emerald-400 animate-pulse" : "bg-zinc-400"}`} />
+      {label}
+    </button>
+  );
+}
+
 interface SearchFiltersProps {
   sourceOpenAlex: boolean;
   setSourceOpenAlex: (v: boolean) => void;
@@ -37,21 +62,6 @@ export function SearchFilters({
   perSource,
   setPerSource,
 }: SearchFiltersProps) {
-  
-  const SourceTag = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) => (
-    <button
-      onClick={() => onChange(!checked)}
-      className={`relative flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-        checked
-          ? "bg-zinc-900 text-white shadow-md shadow-zinc-500/20 dark:bg-white dark:text-zinc-900"
-          : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
-      }`}
-    >
-      <div className={`h-1.5 w-1.5 rounded-full ${checked ? "bg-emerald-400 animate-pulse" : "bg-zinc-400"}`} />
-      {label}
-    </button>
-  );
-
   return (
     <div className="rounded-2xl bg-white p-6 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] ring-1 ring-zinc-900/5 dark:bg-zinc-900 dark:ring-white/10">
       <div className="flex flex-col gap-6">

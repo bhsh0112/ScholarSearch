@@ -2,33 +2,29 @@
 
 import { useEffect, useState } from "react";
 
+/**
+ * 主题切换（明/暗）。
+ *
+ * 设计原则：
+ * - 避免在 effect 里同步 setState（会触发 react-hooks/set-state-in-effect）
+ * - 用 state 驱动 DOM class 与 localStorage 同步
+ */
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window === "undefined") return "light";
+    const stored = localStorage.getItem("theme") as "light" | "dark" | null;
+    if (stored === "light" || stored === "dark") return stored;
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    return prefersDark ? "dark" : "light";
+  });
 
   useEffect(() => {
-    // 初始化主题
-    const stored = localStorage.getItem("theme") as "light" | "dark" | null;
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    
-    if (stored) {
-      setTheme(stored);
-      document.documentElement.classList.toggle("dark", stored === "dark");
-    } else if (prefersDark) {
-      setTheme("dark");
-      document.documentElement.classList.add("dark");
-    }
-  }, []);
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   const toggleTheme = () => {
-    const next = theme === "light" ? "dark" : "light";
-    setTheme(next);
-    localStorage.setItem("theme", next);
-    
-    if (next === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
   };
 
   return (

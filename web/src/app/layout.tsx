@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import Link from "next/link";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -53,6 +54,12 @@ export default function RootLayout({
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <Link
+                  href="/pricing"
+                  className="hidden rounded-xl px-3 py-2 text-xs font-semibold text-zinc-600 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10 sm:inline-flex"
+                >
+                  定价
+                </Link>
                 <ThemeToggle />
               </div>
             </div>

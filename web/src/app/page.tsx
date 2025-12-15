@@ -7,6 +7,8 @@ import { SearchFilters } from "@/components/SearchFilters";
 import { SearchResultCard } from "@/components/SearchResultCard";
 import { AiAssistant } from "@/components/AiAssistant";
 import { NotificationPanel } from "@/components/NotificationPanel";
+import { SaveTopicModal, type TopicConfig } from "@/components/SaveTopicModal";
+import { SavedTopicsPanel, type SavedTopic } from "@/components/SavedTopicsPanel";
 
 export default function Home() {
   const [q, setQ] = useState("retrieval augmented generation survey");
@@ -28,11 +30,20 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState<string | null>(null);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [topicConfig, setTopicConfig] = useState<TopicConfig>({
+    schedule: "DAILY",
+    pushStrategy: "HYBRID",
+    pushTopN: 10,
+    noiseLevel: "STANDARD",
+  });
   const [projectId, setProjectId] = useState<string | null>(null);
   const [notifs, setNotifs] = useState<
-    Array<{ id: string; title: string; body: string | null; createdAt: string; readAt: string | null }>
+    Array<{ id: string; title: string; body: string | null; data?: unknown; createdAt: string; readAt: string | null }>
   >([]);
   const [notifLoading, setNotifLoading] = useState(false);
+  const [topics, setTopics] = useState<SavedTopic[]>([]);
+  const [topicsLoading, setTopicsLoading] = useState(false);
 
   const total = works.length;
   const preview = useMemo(() => works.slice(0, 100), [works]);
@@ -127,6 +138,17 @@ export default function Home() {
     }
   }
 
+  async function refreshTopics() {
+    setTopicsLoading(true);
+    try {
+      const res = await fetch("/api/saved-searches");
+      const json = await res.json();
+      setTopics(json.savedSearches ?? []);
+    } finally {
+      setTopicsLoading(false);
+    }
+  }
+
   async function markRead(id: string) {
     await fetch(`/api/notifications/${id}/read`, { method: "POST" });
     await refreshNotifications();
@@ -141,7 +163,13 @@ export default function Home() {
     return first;
   }
 
-  async function saveSearch() {
+  function openSaveModal() {
+    setSaveError(null);
+    setSaveOk(null);
+    setSaveModalOpen(true);
+  }
+
+  async function saveSearchWithConfig(config: TopicConfig) {
     setSaving(true);
     setSaveError(null);
     setSaveOk(null);
@@ -153,13 +181,25 @@ export default function Home() {
       const res = await fetch("/api/saved-searches", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ projectId: pid, name, query: q, schedule: "DAILY", filters }),
+        body: JSON.stringify({
+          projectId: pid,
+          name,
+          query: q,
+          schedule: config.schedule,
+          pushStrategy: config.pushStrategy,
+          pushTopN: config.pushTopN,
+          noiseLevel: config.noiseLevel,
+          filters,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "save_failed");
-      setSaveOk("已保存（DAILY）");
+      setTopicConfig(config);
+      setSaveOk(`已保存（${config.schedule} / ${config.pushStrategy} / Top ${config.pushTopN}）`);
       // 3秒后清除成功提示
       setTimeout(() => setSaveOk(null), 3000);
+      setSaveModalOpen(false);
+      await refreshTopics();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "unknown_error";
       setSaveError(message);
@@ -208,7 +248,7 @@ export default function Home() {
             onChange={setQ}
             onSearch={runSearch}
             loading={loading}
-            onSave={saveSearch}
+            onSave={openSaveModal}
             saving={saving}
             canSave={!!q.trim()}
             stats={stats}
@@ -234,6 +274,16 @@ export default function Home() {
             </div>
           )}
         </div>
+
+        <SaveTopicModal
+          open={saveModalOpen}
+          queryPreview={q}
+          defaultName={q.length > 60 ? `${q.slice(0, 57)}...` : q}
+          initial={topicConfig}
+          saving={saving}
+          onClose={() => setSaveModalOpen(false)}
+          onConfirm={(cfg) => saveSearchWithConfig(cfg)}
+        />
 
         <div className="relative">
           {/* 右侧通知栏：仅在超宽屏(2xl)把它放到主容器右侧的空白区域，不影响内容右边界对齐 */}
@@ -273,15 +323,18 @@ export default function Home() {
               />
             </div>
             <div className="lg:col-span-4">
-              <AiAssistant
-                aiLoading={aiLoading}
-                aiError={aiError}
-                aiDraft={aiDraft}
-                setAiDraft={setAiDraft}
-                aiExpand={aiExpand}
-                useAiDraft={useAiDraft}
-                q={q}
-              />
+              <div className="space-y-6">
+                <AiAssistant
+                  aiLoading={aiLoading}
+                  aiError={aiError}
+                  aiDraft={aiDraft}
+                  setAiDraft={setAiDraft}
+                  aiExpand={aiExpand}
+                  useAiDraft={useAiDraft}
+                  q={q}
+                />
+                <SavedTopicsPanel items={topics} loading={topicsLoading} refresh={refreshTopics} />
+              </div>
             </div>
             <div className="lg:col-span-2 2xl:hidden">
               <NotificationPanel

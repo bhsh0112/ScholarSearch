@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { aiExpandQuery } from "@/lib/ai/client";
+import { getCurrentPlan } from "@/lib/plans";
 
 const AiExpandRequestSchema = z.object({
   q: z.string().min(1).max(500),
@@ -17,6 +18,14 @@ const AiExpandRequestSchema = z.object({
  * - 否则返回 { ok: true, result }
  */
 export async function POST(req: Request) {
+  const plan = getCurrentPlan();
+  if (!plan.limits.aiEnabled) {
+    return NextResponse.json(
+      { ok: false, error: "plan_required", message: "当前计划不支持 AI 功能，请升级到 Pro/Max。" },
+      { status: 200 },
+    );
+  }
+
   const body = await req.json().catch(() => ({}));
   const parsed = AiExpandRequestSchema.safeParse(body);
   if (!parsed.success) {

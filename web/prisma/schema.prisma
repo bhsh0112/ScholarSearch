@@ -6,6 +6,11 @@
 
 generator client {
   provider = "prisma-client-js"
+  /// 说明：在 Windows + Next.js(moduleResolution=bundler) 场景下，
+  /// Prisma 默认生成到 `node_modules/.prisma/client` 可能导致类型解析不稳定。
+  /// 显式把输出放到 `@prisma/client/.prisma/client`，保证 `@prisma/client` 的
+  /// `export * from '.prisma/client/default'` 能稳定解析到正确的生成产物。
+  output   = "../node_modules/@prisma/client/.prisma/client"
 }
 
 datasource db {
@@ -27,9 +32,45 @@ enum SavedSearchSchedule {
   WEEKLY
 }
 
+/// 推送策略：控制“日常推送”排序偏好
+enum PushStrategy {
+  /// 最新优先：更看重时效（Radar）
+  RECENCY
+  /// 重要性优先：更看重“值得看”（Digest）
+  IMPORTANCE
+  /// 平衡：默认档（Hybrid）
+  HYBRID
+}
+
+/// 噪音控制：控制推送的“严格/宽松”程度（V1.5：简单规则）
+enum NoiseLevel {
+  STRICT
+  STANDARD
+  LOOSE
+}
+
 /// 通知类型：V1 只有“追踪到新论文”
 enum NotificationType {
   NEW_WORKS
+}
+
+/// 用户对推送条目的反馈（用于个性化）
+enum FeedbackAction {
+  /// 相关：轻微正反馈
+  RELEVANT
+  /// 不相关：强负反馈
+  NOT_RELEVANT
+  /// 更多类似：强正反馈（用于学习偏好）
+  MORE_LIKE_THIS
+  /// 更少类似：强负反馈（用于学习偏好）
+  LESS_LIKE_THIS
+}
+
+/// 主题偏好维度：用于规则版排序增益
+enum PreferenceKind {
+  AUTHOR
+  VENUE
+  KEYWORD
 }
 
 model User {
@@ -39,6 +80,8 @@ model User {
 
   projects      Project[]
   notifications Notification[]
+  feedbacks     WorkFeedback[]
+  preferences   TopicPreference[]
 }
 
 model Project {
@@ -63,6 +106,12 @@ model SavedSearch {
   filters   Json?
   active    Boolean  @default(true)
   schedule  SavedSearchSchedule @default(DAILY)
+  /// 推送偏好：最新/重要性/混合
+  pushStrategy PushStrategy @default(HYBRID)
+  /// 推送数量上限：用于“日常推送/邮件摘要”
+  pushTopN     Int          @default(10)
+  /// 噪音控制：严格/标准/宽松（用于过滤低质量/重复轰炸）
+  noiseLevel   NoiseLevel   @default(STANDARD)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -74,6 +123,8 @@ model SavedSearch {
 
   runs           SearchRun[]
   savedSearchWorks SavedSearchWork[]
+  feedbacks        WorkFeedback[]
+  preferences      TopicPreference[]
 
   @@index([projectId])
   @@index([active, schedule, lastCheckedAt])
@@ -118,6 +169,7 @@ model Work {
 
   sources WorkSource[]
   savedSearchWorks SavedSearchWork[]
+  feedbacks WorkFeedback[]
 
   @@index([year])
   @@index([normalizedTitle])
@@ -152,6 +204,45 @@ model SavedSearchWork {
 
   @@unique([savedSearchId, workId])
   @@index([savedSearchId, firstSeenAt])
+}
+
+/// 用户对某条 work（在某个主题下）的反馈
+model WorkFeedback {
+  id        String   @id @default(cuid())
+  action    FeedbackAction
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  savedSearchId String
+  savedSearch   SavedSearch @relation(fields: [savedSearchId], references: [id], onDelete: Cascade)
+
+  workId String
+  work   Work @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, savedSearchId, workId])
+  @@index([userId, savedSearchId, updatedAt])
+}
+
+/// 主题偏好：用来做规则版推荐增益（作者/venue/关键词）
+model TopicPreference {
+  id        String   @id @default(cuid())
+  kind      PreferenceKind
+  value     String
+  weight    Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  savedSearchId String
+  savedSearch   SavedSearch @relation(fields: [savedSearchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, savedSearchId, kind, value])
+  @@index([userId, savedSearchId, kind])
 }
 
 model Notification {

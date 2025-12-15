@@ -18,7 +18,7 @@ function parseJsonFromModelText(text: string): unknown {
     const inside = fenceMatch[1].trim();
     try {
       return JSON5.parse(inside);
-    } catch (e) {
+    } catch {
       console.error("JSON5 parse failed on markdown block:", inside);
     }
   }

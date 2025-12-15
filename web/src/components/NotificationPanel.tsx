@@ -4,6 +4,7 @@ interface Notification {
   id: string;
   title: string;
   body: string | null;
+  data?: unknown;
   createdAt: string;
   readAt: string | null;
 }
@@ -86,6 +87,90 @@ export function NotificationPanel({ notifs, loading, refresh, markRead }: Notifi
                 {n.body}
               </div>
             )}
+
+            {/* 反馈闭环：如果通知 data 里带 items，则展示为可反馈的条目列表 */}
+            {(() => {
+              const d = n.data && typeof n.data === "object" ? (n.data as Record<string, unknown>) : null;
+              const savedSearchId = d && typeof d.savedSearchId === "string" ? d.savedSearchId : null;
+              const items = d && Array.isArray(d.items) ? (d.items as Array<Record<string, unknown>>) : [];
+
+              async function sendFeedback(workId: string, action: string) {
+                if (!savedSearchId) return;
+                await fetch("/api/feedback", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ savedSearchId, workId, action }),
+                });
+              }
+
+              if (!savedSearchId || items.length === 0) return null;
+
+              return (
+                <div className="mt-4 space-y-2 border-t border-zinc-100 pt-3 dark:border-white/10">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                    Top 列表（可反馈）
+                  </div>
+                  {items.slice(0, 10).map((it, idx) => {
+                    const id = typeof it.id === "string" ? it.id : null;
+                    const title = typeof it.title === "string" ? it.title : "";
+                    const url = typeof it.url === "string" ? it.url : null;
+                    if (!id) return null;
+                    return (
+                      <div key={id} className="rounded-lg bg-zinc-50 px-3 py-2 text-xs dark:bg-white/5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="line-clamp-2 font-medium text-zinc-800 dark:text-zinc-200">
+                              {idx + 1}. {title}
+                            </div>
+                            {url ? (
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-1 block truncate text-[10px] text-blue-600 hover:underline dark:text-blue-400"
+                              >
+                                打开原文
+                              </a>
+                            ) : null}
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            <button
+                              onClick={() => sendFeedback(id, "RELEVANT")}
+                              className="rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-zinc-600 ring-1 ring-zinc-200 hover:bg-emerald-50 hover:text-emerald-700 dark:bg-transparent dark:text-zinc-300 dark:ring-white/10 dark:hover:bg-emerald-500/10"
+                              title="相关"
+                            >
+                              相关
+                            </button>
+                            <button
+                              onClick={() => sendFeedback(id, "NOT_RELEVANT")}
+                              className="rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-zinc-600 ring-1 ring-zinc-200 hover:bg-red-50 hover:text-red-700 dark:bg-transparent dark:text-zinc-300 dark:ring-white/10 dark:hover:bg-red-500/10"
+                              title="不相关"
+                            >
+                              不相关
+                            </button>
+                            <button
+                              onClick={() => sendFeedback(id, "MORE_LIKE_THIS")}
+                              className="rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-zinc-600 ring-1 ring-zinc-200 hover:bg-blue-50 hover:text-blue-700 dark:bg-transparent dark:text-zinc-300 dark:ring-white/10 dark:hover:bg-blue-500/10"
+                              title="更多类似"
+                            >
+                              更多
+                            </button>
+                            <button
+                              onClick={() => sendFeedback(id, "LESS_LIKE_THIS")}
+                              className="rounded-md bg-white px-2 py-1 text-[10px] font-semibold text-zinc-600 ring-1 ring-zinc-200 hover:bg-zinc-100 hover:text-zinc-800 dark:bg-transparent dark:text-zinc-300 dark:ring-white/10 dark:hover:bg-white/10"
+                              title="更少类似"
+                            >
+                              更少
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         ))}
       </div>
