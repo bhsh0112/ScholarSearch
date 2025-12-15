@@ -1,18 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-
-type Work = {
-  title: string;
-  abstract?: string | null;
-  year?: number | null;
-  venue?: string | null;
-  url?: string | null;
-  doi?: string | null;
-  arxivId?: string | null;
-  openalexId?: string | null;
-  sources: Array<{ source: string; sourceId: string }>;
-};
+import { AggregatedWork } from "@/lib/sources/types";
+import { SearchInput } from "@/components/SearchInput";
+import { SearchFilters } from "@/components/SearchFilters";
+import { SearchResultCard } from "@/components/SearchResultCard";
+import { AiAssistant } from "@/components/AiAssistant";
+import { NotificationPanel } from "@/components/NotificationPanel";
 
 export default function Home() {
   const [q, setQ] = useState("retrieval augmented generation survey");
@@ -29,7 +23,7 @@ export default function Home() {
   const [authors, setAuthors] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [works, setWorks] = useState<Work[]>([]);
+  const [works, setWorks] = useState<AggregatedWork[]>([]);
   const [stats, setStats] = useState<null | { counts?: unknown; ms?: number; errors?: unknown; filters?: unknown }>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -41,7 +35,8 @@ export default function Home() {
   const [notifLoading, setNotifLoading] = useState(false);
 
   const total = works.length;
-  const preview = useMemo(() => works.slice(0, 50), [works]);
+  // 增加到 100 个预览，体验更好
+  const preview = useMemo(() => works.slice(0, 100), [works]);
 
   function buildFilters() {
     const sources: string[] = [];
@@ -164,6 +159,8 @@ export default function Home() {
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error || "save_failed");
       setSaveOk("已保存（DAILY）");
+      // 3秒后清除成功提示
+      setTimeout(() => setSaveOk(null), 3000);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "unknown_error";
       setSaveError(message);
@@ -195,222 +192,116 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900">
-      <div className="mx-auto max-w-5xl px-6 py-10">
-        <div className="flex items-start justify-between gap-6">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">ScholarSearch V1</h1>
-            <p className="mt-2 text-sm text-zinc-600">
-              聚合检索：OpenAlex + Crossref + arXiv（含基础去重）。
-            </p>
-          </div>
-          <div className="text-right text-sm text-zinc-600">
-            <div>结果：{total}</div>
-            <div>状态：{loading ? "检索中…" : "就绪"}</div>
-          </div>
+    <div className="min-h-screen bg-zinc-50/50 pb-20 dark:bg-black/20">
+      <div className="mx-auto max-w-5xl px-4 py-8 md:px-6">
+        
+        {/* Header Section */}
+        <div className="mb-8 text-center md:text-left">
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 md:text-4xl">
+            ScholarSearch <span className="text-blue-600 dark:text-blue-400">V1</span>
+          </h1>
+          <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+            聚合检索 OpenAlex + Crossref + arXiv，让科研更高效。
+          </p>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-6">
-            <div className="md:col-span-5">
-              <label className="text-xs font-medium text-zinc-700">查询</label>
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-900/10"
-                placeholder="例如：graph neural network explainability survey"
-              />
-            </div>
-            <div className="md:col-span-1">
-              <label className="text-xs font-medium text-zinc-700">每源数量</label>
-              <input
-                value={perSource}
-                onChange={(e) => setPerSource(Number(e.target.value || 0))}
-                className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-900/10"
-                type="number"
-                min={1}
-                max={50}
-              />
-            </div>
-          </div>
+        {/* Search Section */}
+        <div className="sticky top-20 z-40 mb-6">
+           <SearchInput
+             value={q}
+             onChange={setQ}
+             onSearch={runSearch}
+             loading={loading}
+             onSave={saveSearch}
+             saving={saving}
+             canSave={!!q.trim()}
+             stats={stats}
+             total={total}
+           />
+           {(saveError || saveOk || error) && (
+             <div className="absolute top-full left-0 right-0 mt-2 flex justify-center">
+                {error && <div className="rounded-full bg-red-100 px-4 py-1 text-xs font-medium text-red-600 shadow-sm">{error}</div>}
+                {saveError && <div className="rounded-full bg-red-100 px-4 py-1 text-xs font-medium text-red-600 shadow-sm">{saveError}</div>}
+                {saveOk && <div className="rounded-full bg-emerald-100 px-4 py-1 text-xs font-medium text-emerald-600 shadow-sm">{saveOk}</div>}
+             </div>
+           )}
+        </div>
 
-          <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-sm font-semibold">AI：生成检索式草案 + filters</div>
-                <div className="mt-1 text-xs text-zinc-600">
-                  会把你的自由表述发送到第三方 LLM（需在环境变量中配置），返回结果可编辑后再应用。
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={aiExpand}
-                  disabled={aiLoading || !q.trim()}
-                  className="rounded-xl bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-60"
-                >
-                  {aiLoading ? "生成中…" : "AI 生成"}
-                </button>
-                <button
-                  onClick={useAiDraft}
-                  disabled={!aiDraft.trim()}
-                  className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium disabled:opacity-60"
-                >
-                  应用草案到查询
-                </button>
-              </div>
-            </div>
-            {aiError ? <div className="mt-2 text-sm text-red-600">AI 错误：{aiError}</div> : null}
-            <label className="mt-3 block text-xs font-medium text-zinc-700">检索式草案（可编辑）</label>
-            <textarea
-              value={aiDraft}
-              onChange={(e) => setAiDraft(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-900/10"
-              rows={3}
-              placeholder="点击“AI 生成”后会在这里出现 queryDraft"
+        {/* Filters & AI */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <SearchFilters
+              sourceOpenAlex={sourceOpenAlex}
+              setSourceOpenAlex={setSourceOpenAlex}
+              sourceCrossref={sourceCrossref}
+              setSourceCrossref={setSourceCrossref}
+              sourceArxiv={sourceArxiv}
+              setSourceArxiv={setSourceArxiv}
+              yearFrom={yearFrom}
+              setYearFrom={setYearFrom}
+              yearTo={yearTo}
+              setYearTo={setYearTo}
+              venues={venues}
+              setVenues={setVenues}
+              authors={authors}
+              setAuthors={setAuthors}
+              perSource={perSource}
+              setPerSource={setPerSource}
             />
-          </div>
+             <AiAssistant
+              aiLoading={aiLoading}
+              aiError={aiError}
+              aiDraft={aiDraft}
+              setAiDraft={setAiDraft}
+              aiExpand={aiExpand}
+              useAiDraft={useAiDraft}
+              q={q}
+            />
 
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-6">
-            <div className="md:col-span-2">
-              <label className="text-xs font-medium text-zinc-700">来源</label>
-              <div className="mt-2 flex flex-wrap gap-3 text-xs text-zinc-700">
-                <label className="inline-flex items-center gap-2">
-                  <input type="checkbox" checked={sourceOpenAlex} onChange={(e) => setSourceOpenAlex(e.target.checked)} />
-                  OpenAlex
-                </label>
-                <label className="inline-flex items-center gap-2">
-                  <input type="checkbox" checked={sourceCrossref} onChange={(e) => setSourceCrossref(e.target.checked)} />
-                  Crossref
-                </label>
-                <label className="inline-flex items-center gap-2">
-                  <input type="checkbox" checked={sourceArxiv} onChange={(e) => setSourceArxiv(e.target.checked)} />
-                  arXiv
-                </label>
-              </div>
-            </div>
-            <div className="md:col-span-2">
-              <label className="text-xs font-medium text-zinc-700">年份区间</label>
-              <div className="mt-1 grid grid-cols-2 gap-2">
-                <input
-                  value={yearFrom}
-                  onChange={(e) => setYearFrom(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-900/10"
-                  placeholder="from"
-                />
-                <input
-                  value={yearTo}
-                  onChange={(e) => setYearTo(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-900/10"
-                  placeholder="to"
-                />
-              </div>
-            </div>
-            <div className="md:col-span-2">
-              <label className="text-xs font-medium text-zinc-700">期刊/会议（逗号分隔）</label>
-              <input
-                value={venues}
-                onChange={(e) => setVenues(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-900/10"
-                placeholder="例如：neurips, icml, sigir"
-              />
-              <label className="mt-2 block text-xs font-medium text-zinc-700">作者（逗号分隔）</label>
-              <input
-                value={authors}
-                onChange={(e) => setAuthors(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-900/10"
-                placeholder="例如：kenton lee, jimmy lin"
-              />
-            </div>
-          </div>
-
-          <div className="mt-4 flex items-center gap-3">
-            <button
-              onClick={runSearch}
-              disabled={loading}
-              className="inline-flex items-center justify-center rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-            >
-              运行检索
-            </button>
-            <button
-              onClick={saveSearch}
-              disabled={saving || !q.trim()}
-              className="inline-flex items-center justify-center rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 disabled:opacity-60"
-            >
-              保存检索
-            </button>
-            {error ? <div className="text-sm text-red-600">错误：{error}</div> : null}
-          {saveError ? <div className="text-sm text-red-600">保存失败：{saveError}</div> : null}
-          {saveOk ? <div className="text-sm text-emerald-700">{saveOk}</div> : null}
-            {stats ? (
-              <div className="ml-auto text-xs text-zinc-500">
-                {JSON.stringify(stats.counts)} | {stats.ms}ms
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="mt-6 space-y-3">
-          {preview.map((w, idx) => (
-            <div key={`${w.doi ?? w.arxivId ?? w.title}-${idx}`} className="rounded-2xl border border-zinc-200 bg-white p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-sm font-semibold leading-6">{w.title}</div>
-                  <div className="mt-1 text-xs text-zinc-600">
-                    {w.year ?? "n/a"} · {w.venue ?? "n/a"} · 来源：{w.sources.map((s) => s.source).join("+")}
-                  </div>
+            {/* Results List */}
+            <div className="space-y-4">
+               <div className="flex items-center justify-between px-1">
+                 <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">检索结果</h2>
+                 {preview.length > 0 && (
+                   <span className="text-xs text-zinc-500">显示前 {preview.length} 条</span>
+                 )}
+               </div>
+               
+              {loading ? (
+                // Simple Skeleton Loading
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-40 w-full animate-pulse rounded-2xl bg-zinc-200 dark:bg-white/5" />
+                  ))}
                 </div>
-                {w.url ? (
-                  <a className="text-xs font-medium text-zinc-900 underline" href={w.url} target="_blank" rel="noreferrer">
-                    打开
-                  </a>
-                ) : null}
-              </div>
-              {w.abstract ? (
-                <p className="mt-3 line-clamp-4 text-sm text-zinc-700">{w.abstract}</p>
+              ) : preview.length > 0 ? (
+                preview.map((w, idx) => (
+                  <SearchResultCard
+                    key={`${w.doi ?? w.arxivId ?? w.title}-${idx}`}
+                    work={w}
+                  />
+                ))
               ) : (
-                <p className="mt-3 text-sm text-zinc-400">暂无摘要</p>
+                 !loading && stats && (
+                    <div className="flex flex-col items-center justify-center py-12 text-center text-zinc-500">
+                        <p>未找到相关结果</p>
+                        <p className="text-xs">请尝试放宽筛选条件或更换关键词</p>
+                    </div>
+                 )
               )}
             </div>
-          ))}
-        </div>
-
-        <div className="mt-10">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold">站内通知</h2>
-            <button
-              onClick={refreshNotifications}
-              className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium"
-            >
-              {notifLoading ? "刷新中…" : "刷新"}
-            </button>
           </div>
-          <div className="mt-3 space-y-2">
-            {notifs.length === 0 ? (
-              <div className="rounded-2xl border border-zinc-200 bg-white p-4 text-sm text-zinc-500">
-                暂无通知（先保存检索，然后运行一次追踪任务即可生成）。
-              </div>
-            ) : null}
-            {notifs.map((n) => (
-              <div key={n.id} className="rounded-2xl border border-zinc-200 bg-white p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-semibold">
-                      {n.title} {n.readAt ? <span className="text-xs text-zinc-400">(已读)</span> : null}
-                    </div>
-                    <div className="mt-1 text-xs text-zinc-500">{new Date(n.createdAt).toLocaleString()}</div>
-                  </div>
-                  {!n.readAt ? (
-                    <button
-                      onClick={() => markRead(n.id)}
-                      className="rounded-xl border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium"
-                    >
-                      标记已读
-                    </button>
-                  ) : null}
-                </div>
-                {n.body ? <pre className="mt-3 whitespace-pre-wrap text-xs text-zinc-700">{n.body}</pre> : null}
-              </div>
-            ))}
+
+          {/* Sidebar: Notifications */}
+          <div className="lg:col-span-1">
+             <div className="sticky top-40">
+                <NotificationPanel
+                  notifs={notifs}
+                  loading={notifLoading}
+                  refresh={refreshNotifications}
+                  markRead={markRead}
+                />
+             </div>
           </div>
         </div>
       </div>

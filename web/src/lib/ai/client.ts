@@ -1,9 +1,11 @@
 import { AiExpandResultSchema, type AiExpandResult } from "@/lib/ai/schema";
+import JSON5 from "json5";
 
 /**
  * 从模型输出文本中提取 JSON（容错处理）：
  * - 支持 ```json ... ``` / ``` ... ``` 代码块
  * - 支持在解释文字中夹带 JSON：截取从第一个 '{' 到最后一个 '}' 的子串
+ * - 使用 JSON5 解析，支持更宽松的语法（单引号、尾随逗号等）
  */
 function parseJsonFromModelText(text: string): unknown {
   const trimmed = text.trim();
@@ -14,12 +16,16 @@ function parseJsonFromModelText(text: string): unknown {
     trimmed.match(/```\s*([\s\S]*?)\s*```/);
   if (fenceMatch?.[1]) {
     const inside = fenceMatch[1].trim();
-    return JSON.parse(inside);
+    try {
+      return JSON5.parse(inside);
+    } catch (e) {
+      console.error("JSON5 parse failed on markdown block:", inside);
+    }
   }
 
   // 2) 再尝试直接 parse
   try {
-    return JSON.parse(trimmed);
+    return JSON5.parse(trimmed);
   } catch {
     // ignore
   }
@@ -29,7 +35,14 @@ function parseJsonFromModelText(text: string): unknown {
   const last = trimmed.lastIndexOf("}");
   if (first !== -1 && last !== -1 && last > first) {
     const slice = trimmed.slice(first, last + 1);
-    return JSON.parse(slice);
+    try {
+      return JSON5.parse(slice);
+    } catch (e) {
+      const snippet = slice.length > 200 ? slice.slice(0, 200) + "..." : slice;
+      console.error("JSON5 parse failed on snippet:", snippet);
+      // 继续抛出，以便上层捕获
+      throw new Error(`JSON parse error: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   throw new Error("LLM returned non-JSON content");
@@ -82,6 +95,7 @@ export async function aiExpandQuery(params: {
     "- 不要使用括号、复杂布尔表达式、字段限定（如 title:、author:）、以及过长的自然语言句子。",
     "- 重点补全同义词/缩写/常见写法变体，但不要臆造专有名词。",
     "- 长度建议 6~20 个 token，尽量紧凑。",
+    "- 注意：如果 queryDraft 字符串内部包含双引号，务必使用反斜杠转义（\\\"）或改用单引号。",
     "",
     "filters 的原则：",
     "- 仅在用户明确提到年份/作者/会议期刊/来源时才填；不要臆造。",
@@ -127,9 +141,8 @@ export async function aiExpandQuery(params: {
 
   const out = AiExpandResultSchema.safeParse(parsed);
   if (!out.success) {
+    console.error("Zod schema mismatch:", out.error);
     throw new Error("LLM JSON schema mismatch");
   }
   return out.data;
 }
-
-

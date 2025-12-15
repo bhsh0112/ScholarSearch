@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "json5": "^2.2.3"
+  },
+  "devDependencies": {
+    "@types/json5": "^0.0.30"
+  }
+}

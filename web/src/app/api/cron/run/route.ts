@@ -75,8 +75,7 @@ export async function POST(req: Request) {
                 arxivId: existing.arxivId ?? arxivId ?? null,
                 openalexId: existing.openalexId ?? openalexId ?? null,
                 normalizedTitle,
-                // authors 为 JSON 字段：无作者时使用 undefined（不写入），避免传入 null 触发类型错误
-                authors: w.authors ?? undefined,
+                authors: w.authors ?? null,
               },
             })
           : await prisma.work.create({
@@ -90,27 +89,20 @@ export async function POST(req: Request) {
                 arxivId: arxivId ?? null,
                 openalexId,
                 normalizedTitle,
-                // 同上，避免把 null 传给 JSON 字段
-                authors: w.authors ?? undefined,
+                authors: w.authors ?? null,
               },
             });
 
         for (const s of w.sources) {
           await prisma.workSource.upsert({
             where: { source_sourceId: { source: s.source, sourceId: s.sourceId } },
-            update: {
-              workId: work.id,
-              url: s.url ?? null,
-              // raw 为 JSON 字段：无数据时使用 undefined，避免传入普通 null
-              raw: (s.raw as unknown) ?? undefined,
-            },
+            update: { workId: work.id, url: s.url ?? null, raw: (s.raw as unknown) ?? null },
             create: {
               workId: work.id,
               source: s.source,
               sourceId: s.sourceId,
               url: s.url ?? null,
-              // 同上
-              raw: (s.raw as unknown) ?? undefined,
+              raw: (s.raw as unknown) ?? null,
             },
           });
         }
@@ -152,10 +144,9 @@ export async function POST(req: Request) {
         data: {
           savedSearchId: ss.id,
           query: ss.query,
-          // filters / stats 为 JSON 字段：无数据时使用 undefined，避免传入普通 null
-          filters: ss.filters ?? undefined,
+          filters: ss.filters ?? null,
           sources: { openalex: true, crossref: true, arxiv: true },
-          stats: (stats as unknown) ?? undefined,
+          stats: stats ?? null,
           error: runError,
         },
       });
