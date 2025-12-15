@@ -75,7 +75,8 @@ export async function POST(req: Request) {
                 arxivId: existing.arxivId ?? arxivId ?? null,
                 openalexId: existing.openalexId ?? openalexId ?? null,
                 normalizedTitle,
-                authors: w.authors ?? null,
+                // authors 为 JSON 字段：无作者时使用 undefined（不写入），避免传入 null 触发类型错误
+                authors: w.authors ?? undefined,
               },
             })
           : await prisma.work.create({
@@ -89,7 +90,8 @@ export async function POST(req: Request) {
                 arxivId: arxivId ?? null,
                 openalexId,
                 normalizedTitle,
-                authors: w.authors ?? null,
+                // 同上，避免把 null 传给 JSON 字段
+                authors: w.authors ?? undefined,
               },
             });
 
