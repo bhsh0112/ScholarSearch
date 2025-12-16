@@ -96,4 +96,17 @@ V1 支持点击首页的“AI 生成”，把自由表述交给第三方 LLM（O
 
 未配置 SMTP 时，系统只会生成站内通知，不会报错。
 
+## 支付（微信/支付宝，扫码开通订阅）
+已支持在 `/pricing` 使用 **微信支付/支付宝** 扫码开通订阅，支付成功后会写入 `Subscription`，并自动解锁 Free/Pro/Max 的配额限制（AI、主题数量、TopN、频率等）。
+
+配置方式：
+- 参考 `web/env.example` 增加支付相关环境变量（支付宝：`ALIPAY_*`；微信：`WECHATPAY_*`）
+- 回调地址必须是 **公网 HTTPS 可访问**：
+  - 支付宝回调：`/api/pay/alipay/notify`
+  - 微信回调：`/api/pay/wechat/notify`
+
+本地/测试机联调建议：
+- 使用内网穿透（例如 cloudflared/ngrok）把 `http://localhost:3000` 暴露成公网 HTTPS
+- 将 `ALIPAY_NOTIFY_URL` / `WECHATPAY_NOTIFY_URL` 临时指向该公网 URL
+
 

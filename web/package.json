@@ -16,11 +16,14 @@
   "dependencies": {
     "@prisma/client": "^6.0.0",
     "@t3-oss/env-nextjs": "^0.13.10",
+    "alipay-sdk": "^4.14.0",
     "next": "16.0.10",
     "nodemailer": "^7.0.11",
     "prisma": "^6.0.0",
+    "qrcode": "^1.5.4",
     "react": "19.2.1",
     "react-dom": "19.2.1",
+    "wechatpay-node-v3": "^2.2.1",
     "zod": "^4.2.0"
   },
   "devDependencies": {

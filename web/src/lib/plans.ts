@@ -94,4 +94,14 @@ export function getCurrentPlan(): PlanDefinition {
   return PLANS[getCurrentPlanId()];
 }
 
+/**
+ * 根据订阅中的 planId 映射到内部 PlanId。
+ * - 未知值会回退为 FREE（避免脏数据导致崩溃）
+ */
+export function normalizePlanId(raw: string | null | undefined): PlanId {
+  const v = String(raw || "").toUpperCase();
+  if (v === "PRO" || v === "MAX" || v === "FREE") return v;
+  return "FREE";
+}
+
 

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { SearchFiltersSchema } from "@/lib/filters";
-import { getCurrentPlan } from "@/lib/plans";
+import { PLANS } from "@/lib/plans";
+import { getActivePlanForUser } from "@/lib/subscription";
 
 type SavedSearchFindManyArgs = Parameters<typeof prisma.savedSearch.findMany>[0];
 type SavedSearchFindManySelect = SavedSearchFindManyArgs extends { select?: infer S } ? S : never;
@@ -73,7 +74,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_request", detail: parsed.error.flatten() }, { status: 400 });
   }
 
-  const plan = getCurrentPlan();
+  const planId = (await getActivePlanForUser(user.id)) ?? "FREE";
+  const plan = PLANS[planId];
   if (!plan.limits.allowedSchedules.includes(parsed.data.schedule)) {
     return NextResponse.json(
       { error: "plan_limit", message: `当前计划不支持 ${parsed.data.schedule} 频率，请升级后使用。` },

@@ -73,6 +73,34 @@ enum PreferenceKind {
   KEYWORD
 }
 
+/// 支付渠道
+enum PaymentProvider {
+  WECHAT
+  ALIPAY
+}
+
+/// 支付订单状态
+enum PaymentOrderStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELED
+  EXPIRED
+}
+
+/// 订阅周期
+enum BillingPeriod {
+  MONTHLY
+  YEARLY
+}
+
+/// 订阅状态
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  EXPIRED
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -82,6 +110,8 @@ model User {
   notifications Notification[]
   feedbacks     WorkFeedback[]
   preferences   TopicPreference[]
+  orders        PaymentOrder[]
+  subscriptions Subscription[]
 }
 
 model Project {
@@ -243,6 +273,51 @@ model TopicPreference {
 
   @@unique([userId, savedSearchId, kind, value])
   @@index([userId, savedSearchId, kind])
+}
+
+/// 支付订单（单用户模式下仍然按 user 归属，便于后续多用户扩展）
+model PaymentOrder {
+  id        String            @id @default(cuid())
+  provider  PaymentProvider
+  status    PaymentOrderStatus @default(PENDING)
+  planId    String
+  period    BillingPeriod
+  amountCny Int
+
+  /// 商户侧订单号（out_trade_no / out_trade_no）
+  outTradeNo String @unique
+
+  /// 第三方交易号（支付平台侧订单号）
+  providerTradeNo String?
+
+  /// 扫码支付链接（微信 code_url / 支付宝 qr_code）
+  qrCodeUrl String?
+
+  paidAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+
+/// 订阅（用于计算当前计划）
+model Subscription {
+  id        String             @id @default(cuid())
+  status    SubscriptionStatus @default(ACTIVE)
+  planId    String
+  startedAt DateTime           @default(now())
+  currentPeriodEnd DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, currentPeriodEnd])
 }
 
 model Notification {
