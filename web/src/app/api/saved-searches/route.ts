@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { SearchFiltersSchema } from "@/lib/filters";
 import { PLANS } from "@/lib/plans";
 import { getActivePlanForUser } from "@/lib/subscription";
+import { requireUser } from "@/lib/auth";
 
 type SavedSearchFindManyArgs = Parameters<typeof prisma.savedSearch.findMany>[0];
 type SavedSearchFindManySelect = SavedSearchFindManyArgs extends { select?: infer S } ? S : never;
@@ -29,13 +30,11 @@ const CreateSavedSearchSchema = z.object({
  *
  * V1：单用户模式（APP_USER_EMAIL）
  */
-export async function GET() {
-  const email = process.env.APP_USER_EMAIL || "you@example.com";
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) return NextResponse.json({ error: "user_not_seeded" }, { status: 500 });
+export async function GET(req: Request) {
+  const me = await requireUser(req);
 
   const savedSearches = await prisma.savedSearch.findMany({
-    where: { project: { userId: user.id } },
+    where: { project: { userId: me.id } },
     orderBy: { updatedAt: "desc" },
     /**
      * 说明：
@@ -64,9 +63,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const email = process.env.APP_USER_EMAIL || "you@example.com";
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) return NextResponse.json({ error: "user_not_seeded" }, { status: 500 });
+  const me = await requireUser(req);
 
   const body = await req.json().catch(() => ({}));
   const parsed = CreateSavedSearchSchema.safeParse(body);
@@ -74,7 +71,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_request", detail: parsed.error.flatten() }, { status: 400 });
   }
 
-  const planId = (await getActivePlanForUser(user.id)) ?? "FREE";
+  const planId = (await getActivePlanForUser(me.id)) ?? "FREE";
   const plan = PLANS[planId];
   if (!plan.limits.allowedSchedules.includes(parsed.data.schedule)) {
     return NextResponse.json(
@@ -90,11 +87,11 @@ export async function POST(req: Request) {
   }
 
   const project = await prisma.project.findFirst({
-    where: { id: parsed.data.projectId, userId: user.id },
+    where: { id: parsed.data.projectId, userId: me.id },
   });
   if (!project) return NextResponse.json({ error: "project_not_found" }, { status: 404 });
 
-  const existingCount = await prisma.savedSearch.count({ where: { project: { userId: user.id } } });
+  const existingCount = await prisma.savedSearch.count({ where: { project: { userId: me.id } } });
   if (existingCount >= plan.limits.maxTopics) {
     return NextResponse.json(
       { error: "plan_limit", message: `当前计划最多可创建 ${plan.limits.maxTopics} 个主题，请升级后继续创建。` },

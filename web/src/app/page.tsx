@@ -158,6 +158,9 @@ export default function Home() {
     if (projectId) return projectId;
     const res = await fetch("/api/me");
     const json = await res.json();
+    if (!res.ok) {
+      throw new Error("unauthorized");
+    }
     const first = json?.projects?.[0]?.id ?? null;
     setProjectId(first);
     return first;
@@ -239,6 +242,13 @@ export default function Home() {
           </h1>
           <p className="mt-2 text-zinc-600 dark:text-zinc-400">
             聚合检索 OpenAlex + Crossref + arXiv，让科研更高效。
+          </p>
+          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+            如果保存主题/推送等功能不可用，请先{" "}
+            <a className="font-semibold text-blue-600 hover:underline dark:text-blue-400" href="/login">
+              登录
+            </a>
+            。
           </p>
         </div>
 

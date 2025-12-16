@@ -1,5 +1,6 @@
 import prismaPkg from "@prisma/client";
 const { PrismaClient } = prismaPkg;
+import bcrypt from "bcryptjs";
 
 /**
  * V1 种子数据：
@@ -10,11 +11,12 @@ async function main() {
   const prisma = new PrismaClient();
   const email = process.env.APP_USER_EMAIL || "you@example.com";
   const projectName = process.env.APP_PROJECT_NAME || "My Research";
+  const password = process.env.APP_USER_PASSWORD || "";
 
   const user = await prisma.user.upsert({
     where: { email },
     update: {},
-    create: { email },
+    create: { email, passwordHash: password ? await bcrypt.hash(password, 12) : null },
   });
 
   const existing = await prisma.project.findFirst({

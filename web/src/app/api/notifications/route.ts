@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/auth";
 
 const ListSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -13,16 +14,14 @@ const ListSchema = z.object({
  * V1：单用户模式（APP_USER_EMAIL）
  */
 export async function GET(req: Request) {
-  const email = process.env.APP_USER_EMAIL || "you@example.com";
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) return NextResponse.json({ error: "user_not_seeded" }, { status: 500 });
+  const me = await requireUser(req);
 
   const url = new URL(req.url);
   const parsed = ListSchema.safeParse(Object.fromEntries(url.searchParams.entries()));
   const limit = parsed.success ? parsed.data.limit : 20;
 
   const notifications = await prisma.notification.findMany({
-    where: { userId: user.id },
+    where: { userId: me.id },
     orderBy: { createdAt: "desc" },
     take: limit,
     select: {

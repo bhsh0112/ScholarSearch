@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { getAlipayConfig, alipayPrecreate } from "@/lib/pay/alipay";
 import { getWechatPayConfig, wechatCreateNativeOrder } from "@/lib/pay/wechat";
+import { requireUser } from "@/lib/auth";
 
 const CreateOrderSchema = z.object({
   provider: z.enum(["WECHAT", "ALIPAY"]),
@@ -29,9 +30,14 @@ function amountFor(planId: PlanId, period: "MONTHLY" | "YEARLY"): number {
  * - 返回二维码 DataURL，前端直接展示
  */
 export async function POST(req: Request) {
-  const email = process.env.APP_USER_EMAIL || "you@example.com";
-  const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-  if (!user) return NextResponse.json({ error: "user_not_seeded" }, { status: 500 });
+  let me: { id: string; email: string };
+  try {
+    me = await requireUser(req);
+  } catch (e: unknown) {
+    const err = e as Error & { status?: number };
+    const status = typeof err.status === "number" ? err.status : 500;
+    return NextResponse.json({ error: status === 401 ? "unauthorized" : "server_error" }, { status });
+  }
 
   const body = await req.json().catch(() => ({}));
   const parsed = CreateOrderSchema.safeParse(body);
@@ -45,7 +51,7 @@ export async function POST(req: Request) {
 
   const order = await prisma.paymentOrder.create({
     data: {
-      userId: user.id,
+      userId: me.id,
       provider,
       status: "PENDING",
       planId,

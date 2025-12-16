@@ -4,6 +4,7 @@ import { aiExpandQuery } from "@/lib/ai/client";
 import { PLANS } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
 import { getActivePlanForUser } from "@/lib/subscription";
+import { requireUser } from "@/lib/auth";
 
 const AiExpandRequestSchema = z.object({
   q: z.string().min(1).max(500),
@@ -20,11 +21,11 @@ const AiExpandRequestSchema = z.object({
  * - 否则返回 { ok: true, result }
  */
 export async function POST(req: Request) {
-  const email = process.env.APP_USER_EMAIL || "you@example.com";
-  const user = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-  if (!user) return NextResponse.json({ ok: false, error: "user_not_seeded" }, { status: 500 });
+  const me = await requireUser(req);
+  const exists = await prisma.user.findUnique({ where: { id: me.id }, select: { id: true } });
+  if (!exists) return NextResponse.json({ ok: false, error: "user_not_found" }, { status: 404 });
 
-  const planId = (await getActivePlanForUser(user.id)) ?? "FREE";
+  const planId = (await getActivePlanForUser(me.id)) ?? "FREE";
   const plan = PLANS[planId];
   if (!plan.limits.aiEnabled) {
     return NextResponse.json(

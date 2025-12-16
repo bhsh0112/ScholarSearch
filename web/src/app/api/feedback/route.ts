@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/auth";
 
 const FeedbackSchema = z.object({
   savedSearchId: z.string().min(1),
@@ -18,9 +19,7 @@ const FeedbackSchema = z.object({
  * - 同时把反馈折算为“主题偏好”（TopicPreference）权重，用于后续规则版排序增益
  */
 export async function POST(req: Request) {
-  const email = process.env.APP_USER_EMAIL || "you@example.com";
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) return NextResponse.json({ error: "user_not_seeded" }, { status: 500 });
+  const me = await requireUser(req);
 
   const body = await req.json().catch(() => ({}));
   const parsed = FeedbackSchema.safeParse(body);
@@ -32,7 +31,7 @@ export async function POST(req: Request) {
 
   // 校验 savedSearch 属于当前用户
   const ss = await prisma.savedSearch.findFirst({
-    where: { id: savedSearchId, project: { userId: user.id } },
+    where: { id: savedSearchId, project: { userId: me.id } },
     select: { id: true },
   });
   if (!ss) return NextResponse.json({ error: "saved_search_not_found" }, { status: 404 });
@@ -45,9 +44,9 @@ export async function POST(req: Request) {
   if (!work) return NextResponse.json({ error: "work_not_found" }, { status: 404 });
 
   await prisma.workFeedback.upsert({
-    where: { userId_savedSearchId_workId: { userId: user.id, savedSearchId, workId } },
+    where: { userId_savedSearchId_workId: { userId: me.id, savedSearchId, workId } },
     update: { action },
-    create: { userId: user.id, savedSearchId, workId, action },
+    create: { userId: me.id, savedSearchId, workId, action },
   });
 
   /**
@@ -72,9 +71,9 @@ export async function POST(req: Request) {
   if (venue) {
     ops.push(
       prisma.topicPreference.upsert({
-        where: { userId_savedSearchId_kind_value: { userId: user.id, savedSearchId, kind: "VENUE", value: venue } },
+        where: { userId_savedSearchId_kind_value: { userId: me.id, savedSearchId, kind: "VENUE", value: venue } },
         update: { weight: { increment: delta } },
-        create: { userId: user.id, savedSearchId, kind: "VENUE", value: venue, weight: delta },
+        create: { userId: me.id, savedSearchId, kind: "VENUE", value: venue, weight: delta },
       }),
     );
   }
@@ -82,9 +81,9 @@ export async function POST(req: Request) {
   for (const name of authorNames) {
     ops.push(
       prisma.topicPreference.upsert({
-        where: { userId_savedSearchId_kind_value: { userId: user.id, savedSearchId, kind: "AUTHOR", value: name } },
+        where: { userId_savedSearchId_kind_value: { userId: me.id, savedSearchId, kind: "AUTHOR", value: name } },
         update: { weight: { increment: delta } },
-        create: { userId: user.id, savedSearchId, kind: "AUTHOR", value: name, weight: delta },
+        create: { userId: me.id, savedSearchId, kind: "AUTHOR", value: name, weight: delta },
       }),
     );
   }

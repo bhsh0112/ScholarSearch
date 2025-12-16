@@ -30,8 +30,6 @@ web/.turbo/
 
 # --- Prisma generated / local engines ---
 web/node_modules/.prisma/
-web/prisma/migrations/**/*
-!web/prisma/migrations/.gitkeep
 
 # --- OS / IDE ---
 .DS_Store

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import Link from "next/link";
+import { AuthNav } from "@/components/AuthNav";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -60,6 +61,7 @@ export default function RootLayout({
                 >
                   定价
                 </Link>
+                <AuthNav />
                 <ThemeToggle />
               </div>
             </div>

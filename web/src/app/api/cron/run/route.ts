@@ -141,7 +141,7 @@ function pickTop(
  *
  * 说明：
  * - 这是一个“可被定时任务调用”的入口（后续可接 GitHub Actions/云函数 Cron）。
- * - V1 先用单用户模式 + 手动触发，确保主链路稳定。
+ * - 账号系统上线后：以 SavedSearch.project.userId 为归属，逐用户生成通知与邮件。
  */
 export async function POST(req: Request) {
   const secret = process.env.CRON_SECRET;
@@ -150,13 +150,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const email = process.env.APP_USER_EMAIL || "you@example.com";
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) return NextResponse.json({ error: "user_not_seeded" }, { status: 500 });
-
   const savedSearches = await prisma.savedSearch.findMany({
     where: { active: true },
     orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      query: true,
+      filters: true,
+      schedule: true,
+      lastCheckedAt: true,
+      pushStrategy: true,
+      pushTopN: true,
+      noiseLevel: true,
+      project: { select: { userId: true, user: { select: { email: true } } } },
+    },
   });
 
   const results: Array<{ savedSearchId: string; newCount: number; error?: string | null }> = [];
@@ -175,7 +183,7 @@ export async function POST(req: Request) {
       }
 
       const prefRows = await prisma.topicPreference.findMany({
-        where: { userId: user.id, savedSearchId: ss.id },
+        where: { userId: ss.project.userId, savedSearchId: ss.id },
         select: { kind: true, value: true, weight: true },
       });
       const pref = {
@@ -302,7 +310,7 @@ export async function POST(req: Request) {
 
         await prisma.notification.create({
           data: {
-            userId: user.id,
+            userId: ss.project.userId,
             type: "NEW_WORKS",
             title,
             body,
@@ -326,7 +334,7 @@ export async function POST(req: Request) {
           },
         });
 
-        await sendEmail({ to: user.email, subject: title, text: body });
+        await sendEmail({ to: ss.project.user.email, subject: title, text: body });
       }
     } catch (e: unknown) {
       runError = e instanceof Error ? e.message : String(e);
