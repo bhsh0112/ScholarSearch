@@ -162,6 +162,8 @@ export async function aiExpandQuery(params: {
 export async function aiSummarizeWork(params: {
   title: string;
   abstract?: string | null;
+  /** 论文正文（优先于 abstract；建议已做截断/清洗）。 */
+  fullText?: string | null;
   year?: number | null;
   venue?: string | null;
   authors?: string[] | null;
@@ -189,6 +191,8 @@ export async function aiSummarizeWork(params: {
     "- coreIdea: string（对整体方法/思路的概述，一段话即可）",
     "",
     "语言：使用中文；表述要简洁、可直接展示给用户。",
+    "",
+    "输入优先级（很重要）：若提供 fullText（正文），优先依据正文；否则依据 abstract；两者都缺失则只能基于标题/元信息归纳，并明确说明信息不足。",
   ].join("\n");
 
   const user = [
@@ -199,7 +203,8 @@ export async function aiSummarizeWork(params: {
     params.arxivId ? `arXiv：${params.arxivId}` : "",
     params.url ? `URL：${params.url}` : "",
     params.authors && params.authors.length > 0 ? `作者：${params.authors.join(", ")}` : "",
-    params.abstract ? `摘要：${params.abstract}` : "摘要：<缺失>",
+    params.fullText ? `正文（截断/清洗后）：\n${params.fullText}` : "",
+    !params.fullText ? (params.abstract ? `摘要：${params.abstract}` : "摘要：<缺失>") : "",
   ]
     .filter(Boolean)
     .join("\n");

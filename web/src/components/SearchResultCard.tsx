@@ -22,6 +22,7 @@ export function SearchResultCard({ work }: SearchResultCardProps) {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summary, setSummary] = useState<WorkSummary | null>(null);
+  const [summaryMeta, setSummaryMeta] = useState<{ inputUsed: "FULLTEXT" | "ABSTRACT" | "METADATA_ONLY"; inputNote?: string | null } | null>(null);
 
   const key = useMemo(() => {
     const base = work.doi ?? work.arxivId ?? work.openalexId ?? work.title;
@@ -41,6 +42,7 @@ export function SearchResultCard({ work }: SearchResultCardProps) {
 
     setSummaryLoading(true);
     setSummaryError(null);
+    setSummaryMeta(null);
     try {
       const res = await fetch("/api/ai/summary", {
         method: "POST",
@@ -61,7 +63,7 @@ export function SearchResultCard({ work }: SearchResultCardProps) {
       });
       const json = (await res.json().catch(() => null)) as
         | null
-        | { ok?: boolean; error?: string; message?: string; result?: unknown };
+        | { ok?: boolean; error?: string; message?: string; result?: unknown; inputUsed?: unknown; inputNote?: unknown };
       if (!json) {
         throw new Error(`summary_http_${res.status}`);
       }
@@ -86,6 +88,13 @@ export function SearchResultCard({ work }: SearchResultCardProps) {
       if (!result?.problem || !result?.coreIdea) throw new Error("summary_invalid");
 
       setSummary(result);
+      setSummaryMeta({
+        inputUsed:
+          json.inputUsed === "FULLTEXT" || json.inputUsed === "ABSTRACT" || json.inputUsed === "METADATA_ONLY"
+            ? (json.inputUsed as "FULLTEXT" | "ABSTRACT" | "METADATA_ONLY")
+            : "METADATA_ONLY",
+        inputNote: typeof json.inputNote === "string" ? json.inputNote : null,
+      });
       setSummaryOpen(true);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "unknown_error";
@@ -196,7 +205,11 @@ export function SearchResultCard({ work }: SearchResultCardProps) {
         </button>
 
         <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
-          生成内容基于标题/摘要自动归纳
+          {summaryMeta?.inputUsed === "FULLTEXT"
+            ? "本次基于全文（PDF 解析，已截断）归纳"
+            : summaryMeta?.inputUsed === "ABSTRACT"
+              ? "本次基于摘要归纳"
+              : "本次基于元信息/摘要归纳"}
         </span>
       </div>
 
@@ -205,6 +218,11 @@ export function SearchResultCard({ work }: SearchResultCardProps) {
           id={`summary-${key}`}
           className="mt-4 rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-700 ring-1 ring-zinc-900/5 dark:bg-white/5 dark:text-zinc-200 dark:ring-white/10"
         >
+          {summaryMeta?.inputNote ? (
+            <div className="mb-3 rounded-xl bg-zinc-100 px-3 py-2 text-xs text-zinc-600 dark:bg-white/10 dark:text-zinc-300">
+              {summaryMeta.inputNote}
+            </div>
+          ) : null}
           {summaryError ? (
             <div className="space-y-2">
               <div className="text-sm font-semibold text-red-600 dark:text-red-400">概要生成失败</div>

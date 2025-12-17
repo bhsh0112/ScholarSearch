@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 type MeResponse =
   | { user: { id: string; email: string } }
@@ -12,8 +13,11 @@ type MeResponse =
  *
  * 说明：
  * - RootLayout 是 server component，为了不把 prisma/动态渲染引入到 layout，这里用客户端拉取。
+ * - 登录/退出后仅靠 `router.refresh()` 不一定会让该组件重新执行 `useEffect`，
+ *   因此这里在路由变更时也触发一次 refresh，避免“已登录但导航仍显示登录/注册”。
  */
 export function AuthNav() {
+  const pathname = usePathname();
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -36,7 +40,7 @@ export function AuthNav() {
 
   useEffect(() => {
     void refresh();
-  }, []);
+  }, [pathname]);
 
   if (loading) {
     return <div className="text-xs text-zinc-400">…</div>;

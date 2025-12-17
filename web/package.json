@@ -16,7 +16,8 @@
     "db:seed": "node scripts/seed.mjs",
     "worker": "node scripts/worker.mjs",
     "smtp:test": "node scripts/test-smtp.mjs",
-    "db:clear-users": "node scripts/clear-users.mjs"
+    "db:clear-users": "node scripts/clear-users.mjs",
+    "db:upgrade-user": "node scripts/upgrade-user.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",
@@ -25,6 +26,7 @@
     "bcryptjs": "^3.0.3",
     "next": "16.0.10",
     "nodemailer": "^7.0.11",
+    "pdf-parse": "^1.1.1",
     "prisma": "^6.0.0",
     "qrcode": "^1.5.4",
     "react": "19.2.1",
@@ -35,6 +37,8 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/qrcode": "^1.5.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

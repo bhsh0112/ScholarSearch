@@ -229,7 +229,8 @@ export async function POST(req: Request) {
                 arxivId: existing.arxivId ?? arxivId ?? null,
                 openalexId: existing.openalexId ?? openalexId ?? null,
                 normalizedTitle,
-                authors: w.authors ?? null,
+                // Prisma Json? 字段不接受 null（需要 JsonNull/DbNull），这里用 undefined 表示“不更新/不设置”
+                authors: w.authors ?? undefined,
               },
             })
           : await prisma.work.create({
@@ -243,20 +244,27 @@ export async function POST(req: Request) {
                 arxivId: arxivId ?? null,
                 openalexId,
                 normalizedTitle,
-                authors: w.authors ?? null,
+                // Prisma Json? 字段不接受 null（需要 JsonNull/DbNull），这里用 undefined 表示“留空”
+                authors: w.authors ?? undefined,
               },
             });
 
         for (const s of w.sources) {
           await prisma.workSource.upsert({
             where: { source_sourceId: { source: s.source, sourceId: s.sourceId } },
-            update: { workId: work.id, url: s.url ?? null, raw: (s.raw as unknown) ?? null },
+            update: {
+              workId: work.id,
+              url: s.url ?? null,
+              // Prisma Json? 字段不接受 null；undefined 表示“不设置”
+              raw: s.raw == null ? undefined : (s.raw as any),
+            },
             create: {
               workId: work.id,
               source: s.source,
               sourceId: s.sourceId,
               url: s.url ?? null,
-              raw: (s.raw as unknown) ?? null,
+              // Prisma Json? 字段不接受 null；undefined 表示“留空”
+              raw: s.raw == null ? undefined : (s.raw as any),
             },
           });
         }
@@ -343,9 +351,11 @@ export async function POST(req: Request) {
         data: {
           savedSearchId: ss.id,
           query: ss.query,
-          filters: ss.filters ?? null,
+          // Prisma Json? 字段不接受 null；undefined 表示“留空”
+          filters: ss.filters ?? undefined,
           sources: { openalex: true, crossref: true, arxiv: true },
-          stats: stats ?? null,
+          // Prisma Json? 字段不接受 null；undefined 表示“留空”
+          stats: stats ?? undefined,
           error: runError,
         },
       });
