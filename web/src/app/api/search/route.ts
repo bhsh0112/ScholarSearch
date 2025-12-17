@@ -27,7 +27,21 @@ export async function POST(req: Request) {
     perSource,
     filters: parsed.data.filters ?? null,
   });
-  return NextResponse.json({ works, stats });
+
+  // 说明：
+  // - 聚合层为了可追溯会在 sources.raw 里携带原始对象（可能很大）
+  // - 前端展示检索结果不需要 raw，返回给浏览器会增大 payload，也会影响 state 持久化
+  const slimWorks = works.map((w) => ({
+    ...w,
+    sources: w.sources.map((s) => ({
+      source: s.source,
+      sourceId: s.sourceId,
+      url: s.url ?? null,
+      // raw: intentionally omitted
+    })),
+  }));
+
+  return NextResponse.json({ works: slimWorks, stats });
 }
 
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AggregatedWork } from "@/lib/sources/types";
 import { SearchInput } from "@/components/SearchInput";
 import { SearchFilters } from "@/components/SearchFilters";
@@ -9,6 +9,25 @@ import { AiAssistant } from "@/components/AiAssistant";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { SaveTopicModal, type TopicConfig } from "@/components/SaveTopicModal";
 import { SavedTopicsPanel, type SavedTopic } from "@/components/SavedTopicsPanel";
+
+type HomePersistedState = {
+  /** 版本号：避免后续字段变更导致解析失败 */
+  v: 1;
+  savedAt: number;
+  q: string;
+  perSource: number;
+  sourceOpenAlex: boolean;
+  sourceCrossref: boolean;
+  sourceArxiv: boolean;
+  yearFrom: string;
+  yearTo: string;
+  venues: string;
+  authors: string;
+  works: AggregatedWork[];
+  stats: null | { counts?: unknown; ms?: number; errors?: unknown; filters?: unknown };
+};
+
+const HOME_STATE_KEY = "ss_home_state_v1";
 
 export default function Home() {
   const [q, setQ] = useState("retrieval augmented generation survey");
@@ -47,6 +66,77 @@ export default function Home() {
 
   const total = works.length;
   const preview = useMemo(() => works.slice(0, 100), [works]);
+
+  /**
+   * dev 环境下可能发生 Fast Refresh/整页刷新（例如数据库文件写入触发 watcher、HMR 断连等）。
+   * 这里将搜索状态写入 sessionStorage，并在页面初始化时自动恢复，避免“刷新丢结果”。
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.sessionStorage.getItem(HOME_STATE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<HomePersistedState> | null;
+      if (!parsed || parsed.v !== 1 || typeof parsed.savedAt !== "number") return;
+      // 24 小时过期，避免长期脏数据
+      if (Date.now() - parsed.savedAt > 24 * 60 * 60 * 1000) return;
+
+      if (typeof parsed.q === "string") setQ(parsed.q);
+      if (typeof parsed.perSource === "number") setPerSource(parsed.perSource);
+      if (typeof parsed.sourceOpenAlex === "boolean") setSourceOpenAlex(parsed.sourceOpenAlex);
+      if (typeof parsed.sourceCrossref === "boolean") setSourceCrossref(parsed.sourceCrossref);
+      if (typeof parsed.sourceArxiv === "boolean") setSourceArxiv(parsed.sourceArxiv);
+      if (typeof parsed.yearFrom === "string") setYearFrom(parsed.yearFrom);
+      if (typeof parsed.yearTo === "string") setYearTo(parsed.yearTo);
+      if (typeof parsed.venues === "string") setVenues(parsed.venues);
+      if (typeof parsed.authors === "string") setAuthors(parsed.authors);
+      if (Array.isArray(parsed.works)) setWorks(parsed.works as AggregatedWork[]);
+      if (parsed.stats === null || typeof parsed.stats === "object") setStats(parsed.stats as HomePersistedState["stats"]);
+    } catch {
+      // ignore
+    }
+    // 仅初始化时执行
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // loading 期间不覆盖已保存状态，避免中间态写入
+    if (loading) return;
+    const state: HomePersistedState = {
+      v: 1,
+      savedAt: Date.now(),
+      q,
+      perSource,
+      sourceOpenAlex,
+      sourceCrossref,
+      sourceArxiv,
+      yearFrom,
+      yearTo,
+      venues,
+      authors,
+      works,
+      stats,
+    };
+    try {
+      window.sessionStorage.setItem(HOME_STATE_KEY, JSON.stringify(state));
+    } catch {
+      // sessionStorage 容量不足等情况直接忽略
+    }
+  }, [
+    q,
+    perSource,
+    sourceOpenAlex,
+    sourceCrossref,
+    sourceArxiv,
+    yearFrom,
+    yearTo,
+    venues,
+    authors,
+    works,
+    stats,
+    loading,
+  ]);
 
   function buildFilters() {
     const sources: string[] = [];

@@ -69,6 +69,12 @@ const nextConfig: NextConfig = {
   webpack: (config, { isServer }) => {
     // 避免 SQLite 数据库文件写入触发 dev 环境的 Fast Refresh / 全局刷新
     appendWebpackIgnored(config as unknown as Record<string, unknown>, [
+      // 默认 V1 本地 SQLite：web/.env 里常用 DATABASE_URL="file:./dev.db"
+      // dev.db / dev.db-wal / dev.db-shm 等频繁写入会触发监听，从而导致页面“自动刷新、状态丢失”
+      "**/*.db",
+      "**/*.db-journal",
+      "**/*.db-wal",
+      "**/*.db-shm",
       "**/prisma/*.db",
       "**/prisma/*.db-journal",
       "**/prisma/*.db-wal",
