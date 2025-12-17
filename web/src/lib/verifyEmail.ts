@@ -21,7 +21,8 @@ export async function sendVerificationEmail(params: { userId: string; email: str
     data: { userId: params.userId, tokenHash, expiresAt },
   });
 
-  const base = (process.env.APP_BASE_URL || "").replace(/\/+$/, "");
+  const baseFallback = process.env.NODE_ENV === "production" ? "" : "http://localhost:3000";
+  const base = (process.env.APP_BASE_URL || baseFallback).replace(/\/+$/, "");
   const link = `${base}/verify-email?token=${encodeURIComponent(token)}`;
   const subject = "ScholarSearch 邮箱验证";
   const text = `请点击链接完成邮箱验证：\n${link}\n\n若不是你本人操作，请忽略。`;

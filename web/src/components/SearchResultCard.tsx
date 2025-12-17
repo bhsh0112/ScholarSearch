@@ -1,11 +1,101 @@
-import React from "react";
+"use client";
+
+import React, { useMemo, useState } from "react";
 import { AggregatedWork } from "@/lib/sources/types";
+
+type WorkSummary = {
+  problem: string;
+  contributions: string[];
+  innovations: string[];
+  coreIdea: string;
+};
 
 interface SearchResultCardProps {
   work: AggregatedWork;
 }
 
+/**
+ * 单条检索结果卡片：展示元信息/摘要，并支持“生成概要”（调用 LLM，返回结构化四段内容）。
+ */
 export function SearchResultCard({ work }: SearchResultCardProps) {
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<WorkSummary | null>(null);
+
+  const key = useMemo(() => {
+    const base = work.doi ?? work.arxivId ?? work.openalexId ?? work.title;
+    return String(base || "work").slice(0, 200);
+  }, [work.arxivId, work.doi, work.openalexId, work.title]);
+
+  /**
+   * 请求后端生成概要。
+   * - 若已生成过：直接展开/收起
+   * - 否则：调用 /api/ai/summary 并缓存到组件 state
+   */
+  async function generateSummary() {
+    if (summary) {
+      setSummaryOpen((v) => !v);
+      return;
+    }
+
+    setSummaryLoading(true);
+    setSummaryError(null);
+    try {
+      const res = await fetch("/api/ai/summary", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          work: {
+            title: work.title,
+            abstract: work.abstract ?? null,
+            year: work.year ?? null,
+            venue: work.venue ?? null,
+            url: work.url ?? null,
+            doi: work.doi ?? null,
+            arxivId: work.arxivId ?? null,
+            openalexId: work.openalexId ?? null,
+            authors: work.authors ?? null,
+          },
+        }),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | null
+        | { ok?: boolean; error?: string; message?: string; result?: unknown };
+      if (!json) {
+        throw new Error(`summary_http_${res.status}`);
+      }
+
+      // 统一按 {ok:true/false} 处理，避免 401/500 之类把信息截断成裸 error code。
+      if (!json.ok) {
+        const code = json.error || (res.ok ? "summary_failed" : `summary_http_${res.status}`);
+        const message = json.message || code;
+        if (code === "llm_not_configured") {
+          throw new Error("LLM 未配置：请在 web/.env 中设置 LLM_BASE_URL/LLM_API_KEY/LLM_MODEL");
+        }
+        if (code === "plan_required") {
+          throw new Error(message || "当前计划不支持 AI 功能，请升级到 Pro/Max。");
+        }
+        if (code === "unauthorized") {
+          throw new Error("请先登录后再使用“生成概要”。");
+        }
+        throw new Error(message);
+      }
+
+      const result = json.result as WorkSummary | undefined;
+      if (!result?.problem || !result?.coreIdea) throw new Error("summary_invalid");
+
+      setSummary(result);
+      setSummaryOpen(true);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "unknown_error";
+      setSummaryError(message);
+      setSummaryOpen(true);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
   return (
     <div className="group relative overflow-hidden rounded-2xl bg-white p-6 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] ring-1 ring-zinc-900/5 transition-all duration-300 hover:scale-[1.01] hover:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.1)] hover:ring-zinc-900/10 dark:bg-zinc-900 dark:ring-white/10 dark:hover:ring-white/20">
       
@@ -79,6 +169,99 @@ export function SearchResultCard({ work }: SearchResultCardProps) {
           </a>
         )}
       </div>
+
+      <div className="mt-5 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={generateSummary}
+          disabled={summaryLoading}
+          className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+          aria-expanded={summaryOpen}
+          aria-controls={`summary-${key}`}
+        >
+          {summaryLoading ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/60 border-t-white dark:border-zinc-900/40 dark:border-t-zinc-900" />
+              生成中...
+            </span>
+          ) : summary ? (
+            summaryOpen ? (
+              "收起概要"
+            ) : (
+              "查看概要"
+            )
+          ) : (
+            "生成概要"
+          )}
+        </button>
+
+        <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+          生成内容基于标题/摘要自动归纳
+        </span>
+      </div>
+
+      {summaryOpen ? (
+        <div
+          id={`summary-${key}`}
+          className="mt-4 rounded-2xl bg-zinc-50 p-4 text-sm text-zinc-700 ring-1 ring-zinc-900/5 dark:bg-white/5 dark:text-zinc-200 dark:ring-white/10"
+        >
+          {summaryError ? (
+            <div className="space-y-2">
+              <div className="text-sm font-semibold text-red-600 dark:text-red-400">概要生成失败</div>
+              <div className="text-xs text-zinc-600 dark:text-zinc-300">{summaryError}</div>
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSummary(null);
+                    setSummaryError(null);
+                    void generateSummary();
+                  }}
+                  className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500"
+                >
+                  重试
+                </button>
+              </div>
+            </div>
+          ) : summary ? (
+            <div className="space-y-3">
+              <div>
+                <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">① 解决的问题</div>
+                <div className="mt-1 leading-relaxed">{summary.problem}</div>
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">② 主要贡献</div>
+                <ul className="mt-1 list-disc space-y-1 pl-5">
+                  {summary.contributions.map((t, i) => (
+                    <li key={i} className="leading-relaxed">
+                      {t}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">③ 创新点</div>
+                <ul className="mt-1 list-disc space-y-1 pl-5">
+                  {summary.innovations.map((t, i) => (
+                    <li key={i} className="leading-relaxed">
+                      {t}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">④ 核心思路概述</div>
+                <div className="mt-1 leading-relaxed">{summary.coreIdea}</div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-zinc-500 dark:text-zinc-400">点击“生成概要”后将在此展示结果。</div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -6,11 +6,10 @@
 
 generator client {
   provider = "prisma-client-js"
-  /// 说明：在 Windows + Next.js(moduleResolution=bundler) 场景下，
-  /// Prisma 默认生成到 `node_modules/.prisma/client` 可能导致类型解析不稳定。
-  /// 显式把输出放到 `@prisma/client/.prisma/client`，保证 `@prisma/client` 的
-  /// `export * from '.prisma/client/default'` 能稳定解析到正确的生成产物。
-  output   = "../node_modules/@prisma/client/.prisma/client"
+  /// 说明：保持 Prisma 默认输出（node_modules/.prisma/client）。
+  /// 之前将 output 指到 `@prisma/client/.prisma/client` 会导致运行时仍从
+  /// `#main-entry-point` 解析到 node_modules/.prisma/client 的 stub 文件，从而出现
+  /// “@prisma/client did not initialize yet”。
 }
 
 datasource db {

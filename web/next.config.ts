@@ -1,7 +1,93 @@
 import type { NextConfig } from "next";
 
+/**
+ * 追加 Webpack watch ignored 规则：
+ * - Next dev（webpack）会监听项目文件变化，某些二进制/数据库文件频繁写入会触发 Fast Refresh，
+ *   导致页面“隔一段时间刷新”、用户输入/页面状态丢失。
+ * - 这里显式忽略 Prisma/SQLite 的本地数据库文件及其 wal/shm/journal 衍生文件。
+ */
+function appendWebpackIgnored(config: Record<string, unknown>, patterns: (string | RegExp)[]) {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const watchOptions = (config as any).watchOptions ?? {};
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const existingIgnored = watchOptions.ignored;
+  const nextIgnored: string[] = [];
+
+  /**
+   * 仅接受非空字符串（glob）。
+   *
+   * 说明：
+   * - 某些 Next/webpack 组合在校验 schema 时，对 ignored 数组只允许 string，
+   *   若把 RegExp（如 /node_modules/）合并进去会触发 ValidationError。
+   * @param {unknown} v
+   */
+  function pushIfValid(v: unknown) {
+    if (typeof v === "string") {
+      const s = v.trim();
+      if (s) nextIgnored.push(s);
+      return;
+    }
+  }
+
+  if (Array.isArray(existingIgnored)) {
+    for (const v of existingIgnored) pushIfValid(v);
+  } else if (typeof existingIgnored === "string") {
+    pushIfValid(existingIgnored);
+  }
+  for (const p of patterns) pushIfValid(p);
+
+  (config as any).watchOptions = {
+    ...watchOptions,
+    ignored: nextIgnored,
+  };
+}
+
 const nextConfig: NextConfig = {
-  /* config options here */
+  /**
+   * Turbopack/Workspace Root
+   * 由于仓库根目录与 web 目录同时存在 lockfile，Next 可能误判 workspace root，
+   * 从而在启动时输出警告。这里显式指定 Turbopack 的 root 为 web 目录。
+   */
+  turbopack: {
+    root: __dirname,
+  },
+  /**
+   * Prisma 在 dev 下配合 Turbopack 时，建议将其标记为 Server External Package，
+   * 避免被打包进 bundle 导致运行时无法正确定位生成产物（从而报
+   * “@prisma/client did not initialize yet …”）。
+   */
+  serverExternalPackages: ["@prisma/client", "prisma"],
+  /**
+   * 允许 dev 环境下来自特定 Origin 的 /_next/* 资源请求，避免跨域警告。
+   * 如果你在局域网用 IP 访问（如 http://172.17.50.21:3000），可把该 Origin 加进来。
+   */
+  allowedDevOrigins: ["http://localhost:3000", "http://172.17.50.21:3000", "http://192.168.31.17:3000"],
+  /**
+   * Webpack 模式下显式 externalize Prisma，避免被打包导致初始化异常。
+   * - 注意：仅对 `next dev --webpack` / `next build` 的 Webpack pipeline 生效
+   */
+  webpack: (config, { isServer }) => {
+    // 避免 SQLite 数据库文件写入触发 dev 环境的 Fast Refresh / 全局刷新
+    appendWebpackIgnored(config as unknown as Record<string, unknown>, [
+      "**/prisma/*.db",
+      "**/prisma/*.db-journal",
+      "**/prisma/*.db-wal",
+      "**/prisma/*.db-shm",
+      "**/*.sqlite",
+      "**/*.sqlite3",
+    ]);
+
+    if (isServer) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const externals = config.externals ?? [];
+      config.externals = Array.isArray(externals) ? externals : [externals];
+      config.externals.push({
+        "@prisma/client": "commonjs @prisma/client",
+        prisma: "commonjs prisma",
+      });
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

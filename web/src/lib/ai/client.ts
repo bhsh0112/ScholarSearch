@@ -1,4 +1,4 @@
-import { AiExpandResultSchema, type AiExpandResult } from "@/lib/ai/schema";
+import { AiExpandResultSchema, AiWorkSummarySchema, type AiExpandResult, type AiWorkSummary } from "@/lib/ai/schema";
 import JSON5 from "json5";
 
 /**
@@ -140,6 +140,100 @@ export async function aiExpandQuery(params: {
   const parsed = parseJsonFromModelText(content);
 
   const out = AiExpandResultSchema.safeParse(parsed);
+  if (!out.success) {
+    console.error("Zod schema mismatch:", out.error);
+    throw new Error("LLM JSON schema mismatch");
+  }
+  return out.data;
+}
+
+/**
+ * 调用第三方 LLM，为单篇文献生成结构化概要：
+ * - 解决的问题
+ * - 主要贡献
+ * - 创新点
+ * - 核心思路概述
+ *
+ * 设计原则：
+ * - 若未配置 LLM 环境变量，则返回 null（上层可提示用户配置/升级）
+ * - 严格要求 JSON 输出，并用 zod 校验
+ * - 输入信息不足时，要求模型显式说明“不足以判断”，避免臆造细节
+ */
+export async function aiSummarizeWork(params: {
+  title: string;
+  abstract?: string | null;
+  year?: number | null;
+  venue?: string | null;
+  authors?: string[] | null;
+  doi?: string | null;
+  arxivId?: string | null;
+  url?: string | null;
+}): Promise<AiWorkSummary | null> {
+  const baseUrl = process.env.LLM_BASE_URL;
+  const apiKey = process.env.LLM_API_KEY;
+  const model = process.env.LLM_MODEL;
+  if (!baseUrl || !apiKey || !model) return null;
+
+  const system = [
+    "你是一个严谨的学术论文助手。你的任务是：根据给定的论文元信息（标题/摘要/作者/venue/年份等），为用户生成结构化“概要”。",
+    "",
+    "非常重要的约束：",
+    "- 只基于输入内容做归纳，不要凭空补充论文中未提供的实验细节、数据集名称、具体方法名等。",
+    "- 如果摘要信息不足以支持某个结论，请在对应字段里明确写“摘要未提及/信息不足，无法判断”。",
+    "- 输出必须是 JSON（不要 Markdown），字段必须严格为：problem, contributions, innovations, coreIdea。",
+    "",
+    "字段说明：",
+    '- problem: string（一句话或两句话，说明论文试图解决什么问题）',
+    "- contributions: string[]（1~6 条要点）",
+    "- innovations: string[]（1~6 条要点，强调“相对已有工作的新意”）",
+    "- coreIdea: string（对整体方法/思路的概述，一段话即可）",
+    "",
+    "语言：使用中文；表述要简洁、可直接展示给用户。",
+  ].join("\n");
+
+  const user = [
+    `标题：${params.title}`,
+    params.year ? `年份：${params.year}` : "",
+    params.venue ? `会议/期刊：${params.venue}` : "",
+    params.doi ? `DOI：${params.doi}` : "",
+    params.arxivId ? `arXiv：${params.arxivId}` : "",
+    params.url ? `URL：${params.url}` : "",
+    params.authors && params.authors.length > 0 ? `作者：${params.authors.join(", ")}` : "",
+    params.abstract ? `摘要：${params.abstract}` : "摘要：<缺失>",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const body: ChatCompletionRequest = {
+    model,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    temperature: 0.2,
+    response_format: { type: "json_object" },
+  };
+
+  const url = `${baseUrl.replace(/\/+$/, "")}/v1/chat/completions`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    throw new Error(`LLM error: ${res.status} ${res.statusText}`);
+  }
+
+  const json = (await res.json()) as ChatCompletionResponse;
+  const content = json.choices?.[0]?.message?.content;
+  if (!content) throw new Error("LLM empty content");
+
+  const parsed = parseJsonFromModelText(content);
+  const out = AiWorkSummarySchema.safeParse(parsed);
   if (!out.success) {
     console.error("Zod schema mismatch:", out.error);
     throw new Error("LLM JSON schema mismatch");
