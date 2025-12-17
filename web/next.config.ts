@@ -1,5 +1,23 @@
 import type { NextConfig } from "next";
 
+if (process.env.NODE_ENV === "development") {
+  // eslint-disable-next-line no-console
+  console.log("[next.config] allowedDevOrigins:", [
+    "http://localhost:3000",
+    "http://localhost",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1",
+    "http://172.17.50.21:3000",
+    "http://172.17.50.21",
+    "http://192.168.31.17:3000",
+    "http://192.168.31.17",
+    "https://172.17.50.21:3000",
+    "https://172.17.50.21",
+    "https://192.168.31.17:3000",
+    "https://192.168.31.17",
+  ]);
+}
+
 /**
  * 追加 Webpack watch ignored 规则：
  * - Next dev（webpack）会监听项目文件变化，某些二进制/数据库文件频繁写入会触发 Fast Refresh，
@@ -61,7 +79,27 @@ const nextConfig: NextConfig = {
    * 允许 dev 环境下来自特定 Origin 的 /_next/* 资源请求，避免跨域警告。
    * 如果你在局域网用 IP 访问（如 http://172.17.50.21:3000），可把该 Origin 加进来。
    */
-  allowedDevOrigins: ["http://localhost:3000", "http://172.17.50.21:3000", "http://192.168.31.17:3000"],
+  // 说明：Next dev 对 Origin/Host 的判断在不同网络/代理场景下可能出现“看起来没带端口”的情况，
+  // 为了避免 HMR 与 /_next 资源被拦截导致页面反复刷新，这里把常见访问方式都加入白名单。
+  allowedDevOrigins: [
+    "http://localhost:3000",
+    "http://localhost",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1",
+    "http://172.17.50.21:3000",
+    "http://172.17.50.21",
+    "http://192.168.31.17:3000",
+    "http://192.168.31.17",
+    // 某些环境下 Next 的告警里会出现“裸 host”（无 scheme/端口），这里也一并兼容
+    "192.168.31.17",
+    "192.168.31.17:3000",
+    "172.17.50.21",
+    "172.17.50.21:3000",
+    "https://172.17.50.21:3000",
+    "https://172.17.50.21",
+    "https://192.168.31.17:3000",
+    "https://192.168.31.17",
+  ],
   /**
    * Webpack 模式下显式 externalize Prisma，避免被打包导致初始化异常。
    * - 注意：仅对 `next dev --webpack` / `next build` 的 Webpack pipeline 生效
@@ -71,6 +109,11 @@ const nextConfig: NextConfig = {
     appendWebpackIgnored(config as unknown as Record<string, unknown>, [
       // 默认 V1 本地 SQLite：web/.env 里常用 DATABASE_URL="file:./dev.db"
       // dev.db / dev.db-wal / dev.db-shm 等频繁写入会触发监听，从而导致页面“自动刷新、状态丢失”
+      // 说明：某些 watchpack 版本对 "**/*.db" 这类 glob 的匹配并不稳定，这里同时加入更“直给”的模式兜底。
+      "dev.db",
+      "dev.db-*",
+      "**/dev.db",
+      "**/dev.db-*",
       "**/*.db",
       "**/*.db-journal",
       "**/*.db-wal",
