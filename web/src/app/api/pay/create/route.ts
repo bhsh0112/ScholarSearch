@@ -100,6 +100,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, orderId: order.id, provider, qrDataUrl, qrCodeUrl: res.qrCode });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
+    console.error("pay_create_failed", {
+      provider,
+      planId,
+      period,
+      orderId: order.id,
+      outTradeNo: order.outTradeNo,
+      message: msg,
+    });
     await prisma.paymentOrder.update({ where: { id: order.id }, data: { status: "FAILED" } });
     return NextResponse.json({ error: "create_order_failed", message: msg }, { status: 500 });
   }

@@ -5,6 +5,7 @@ import { normalizeArxivId, normalizeDoi, normalizeTitle } from "@/lib/normalize"
 import { sendEmail } from "@/lib/email";
 import type { SearchFilters } from "@/lib/filters";
 import { SearchFiltersSchema } from "@/lib/filters";
+import type { Prisma } from "@prisma/client";
 
 type PushStrategy = "RECENCY" | "IMPORTANCE" | "HYBRID";
 type NoiseLevel = "STRICT" | "STANDARD" | "LOOSE";
@@ -256,7 +257,7 @@ export async function POST(req: Request) {
               workId: work.id,
               url: s.url ?? null,
               // Prisma Json? 字段不接受 null；undefined 表示“不设置”
-              raw: s.raw == null ? undefined : (s.raw as any),
+              raw: s.raw == null ? undefined : (s.raw as Prisma.InputJsonValue),
             },
             create: {
               workId: work.id,
@@ -264,7 +265,7 @@ export async function POST(req: Request) {
               sourceId: s.sourceId,
               url: s.url ?? null,
               // Prisma Json? 字段不接受 null；undefined 表示“留空”
-              raw: s.raw == null ? undefined : (s.raw as any),
+              raw: s.raw == null ? undefined : (s.raw as Prisma.InputJsonValue),
             },
           });
         }

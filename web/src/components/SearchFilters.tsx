@@ -28,10 +28,14 @@ function SourceTag({ label, checked, onChange }: SourceTagProps) {
 interface SearchFiltersProps {
   sourceOpenAlex: boolean;
   setSourceOpenAlex: (v: boolean) => void;
-  sourceCrossref: boolean;
-  setSourceCrossref: (v: boolean) => void;
   sourceArxiv: boolean;
   setSourceArxiv: (v: boolean) => void;
+  sourceSemanticScholar: boolean;
+  setSourceSemanticScholar: (v: boolean) => void;
+  sourceDblp: boolean;
+  setSourceDblp: (v: boolean) => void;
+  sourcePubmed: boolean;
+  setSourcePubmed: (v: boolean) => void;
   yearFrom: string;
   setYearFrom: (v: string) => void;
   yearTo: string;
@@ -47,10 +51,14 @@ interface SearchFiltersProps {
 export function SearchFilters({
   sourceOpenAlex,
   setSourceOpenAlex,
-  sourceCrossref,
-  setSourceCrossref,
   sourceArxiv,
   setSourceArxiv,
+  sourceSemanticScholar,
+  setSourceSemanticScholar,
+  sourceDblp,
+  setSourceDblp,
+  sourcePubmed,
+  setSourcePubmed,
   yearFrom,
   setYearFrom,
   yearTo,
@@ -73,8 +81,10 @@ export function SearchFilters({
           </label>
           <div className="mt-3 flex flex-wrap gap-2">
             <SourceTag label="OpenAlex" checked={sourceOpenAlex} onChange={setSourceOpenAlex} />
-            <SourceTag label="Crossref" checked={sourceCrossref} onChange={setSourceCrossref} />
             <SourceTag label="arXiv" checked={sourceArxiv} onChange={setSourceArxiv} />
+            <SourceTag label="Semantic Scholar" checked={sourceSemanticScholar} onChange={setSourceSemanticScholar} />
+            <SourceTag label="DBLP" checked={sourceDblp} onChange={setSourceDblp} />
+            <SourceTag label="PubMed" checked={sourcePubmed} onChange={setSourcePubmed} />
           </div>
         </div>
 

@@ -100,6 +100,20 @@ enum SubscriptionStatus {
   EXPIRED
 }
 
+/// 人工收款码充值状态（V1：不依赖支付网关回调）
+enum ManualTopupStatus {
+  /// 已创建，等待用户付款
+  CREATED
+  /// 用户已点击“我已付款/提交确认”，等待管理员审核
+  USER_CONFIRMED
+  /// 管理员已审核通过并开通/续费订阅
+  APPROVED
+  /// 管理员拒绝（金额不对/未到账/重复）
+  REJECTED
+  /// 用户取消（可选）
+  CANCELED
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -114,6 +128,7 @@ model User {
   feedbacks     WorkFeedback[]
   preferences   TopicPreference[]
   orders        PaymentOrder[]
+  manualTopups  ManualTopup[]
   subscriptions Subscription[]
   sessions      Session[]
   emailVerificationTokens EmailVerificationToken[]
@@ -338,6 +353,9 @@ model PaymentOrder {
   /// 扫码支付链接（微信 code_url / 支付宝 qr_code）
   qrCodeUrl String?
 
+  /// 主动对账：上次向支付平台查询该订单状态的时间（用于轮询节流，避免高频打网关）
+  lastQueriedAt DateTime?
+
   paidAt    DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -363,6 +381,34 @@ model Subscription {
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, status, currentPeriodEnd])
+}
+
+/// 人工收款码充值记录（V1：用户扫你的“收款码”，管理员手动审核开通订阅）
+model ManualTopup {
+  id        String            @id @default(cuid())
+  status    ManualTopupStatus @default(CREATED)
+  provider  String
+
+  planId    String
+  period    BillingPeriod
+  amountCny Int
+
+  /// 给用户填在转账备注里的“参考码”（便于你对账）
+  referenceCode String @unique
+
+  note      String?
+  userConfirmedAt DateTime?
+  approvedAt DateTime?
+  rejectedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
 }
 
 model Notification {

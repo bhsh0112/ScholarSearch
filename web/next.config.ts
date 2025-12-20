@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 if (process.env.NODE_ENV === "development") {
-  // eslint-disable-next-line no-console
   console.log("[next.config] allowedDevOrigins:", [
     "http://localhost:3000",
     "http://localhost",
@@ -24,10 +23,17 @@ if (process.env.NODE_ENV === "development") {
  *   导致页面“隔一段时间刷新”、用户输入/页面状态丢失。
  * - 这里显式忽略 Prisma/SQLite 的本地数据库文件及其 wal/shm/journal 衍生文件。
  */
+type WebpackConfigWithWatchOptions = {
+  watchOptions?: { ignored?: unknown };
+  externals?: unknown;
+};
+
+/**
+ * 追加 `config.watchOptions.ignored` 的 glob（仅 string）。
+ */
 function appendWebpackIgnored(config: Record<string, unknown>, patterns: (string | RegExp)[]) {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const watchOptions = (config as any).watchOptions ?? {};
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+  const cfg = config as unknown as WebpackConfigWithWatchOptions;
+  const watchOptions = cfg.watchOptions ?? {};
   const existingIgnored = watchOptions.ignored;
   const nextIgnored: string[] = [];
 
@@ -54,7 +60,7 @@ function appendWebpackIgnored(config: Record<string, unknown>, patterns: (string
   }
   for (const p of patterns) pushIfValid(p);
 
-  (config as any).watchOptions = {
+  cfg.watchOptions = {
     ...watchOptions,
     ignored: nextIgnored,
   };
@@ -127,9 +133,9 @@ const nextConfig: NextConfig = {
     ]);
 
     if (isServer) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const externals = config.externals ?? [];
-      config.externals = Array.isArray(externals) ? externals : [externals];
+      const cfg = config as unknown as WebpackConfigWithWatchOptions;
+      const externals = cfg.externals ?? [];
+      cfg.externals = Array.isArray(externals) ? externals : [externals];
       config.externals.push({
         "@prisma/client": "commonjs @prisma/client",
         prisma: "commonjs prisma",

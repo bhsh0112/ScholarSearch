@@ -337,8 +337,8 @@ export async function POST(req: Request) {
     const inputUsed = r.__inputUsed ?? "METADATA_ONLY";
     const inputNote = r.__inputNote ?? null;
     // 清理内部字段，避免污染前端展示
-    delete (r as any).__inputUsed;
-    delete (r as any).__inputNote;
+    delete (r as unknown as Record<string, unknown>).__inputUsed;
+    delete (r as unknown as Record<string, unknown>).__inputNote;
     return NextResponse.json({ ok: true, result: r, cached: false, inputUsed, inputNote });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "ai_failed";

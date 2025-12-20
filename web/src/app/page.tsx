@@ -17,8 +17,10 @@ type HomePersistedState = {
   q: string;
   perSource: number;
   sourceOpenAlex: boolean;
-  sourceCrossref: boolean;
   sourceArxiv: boolean;
+  sourceSemanticScholar: boolean;
+  sourceDblp: boolean;
+  sourcePubmed: boolean;
   yearFrom: string;
   yearTo: string;
   venues: string;
@@ -36,8 +38,10 @@ export default function Home() {
   const [aiDraft, setAiDraft] = useState<string>("");
   const [perSource, setPerSource] = useState(15);
   const [sourceOpenAlex, setSourceOpenAlex] = useState(true);
-  const [sourceCrossref, setSourceCrossref] = useState(true);
   const [sourceArxiv, setSourceArxiv] = useState(true);
+  const [sourceSemanticScholar, setSourceSemanticScholar] = useState(true);
+  const [sourceDblp, setSourceDblp] = useState(true);
+  const [sourcePubmed, setSourcePubmed] = useState(true);
   const [yearFrom, setYearFrom] = useState<string>("");
   const [yearTo, setYearTo] = useState<string>("");
   const [venues, setVenues] = useState<string>("");
@@ -51,9 +55,11 @@ export default function Home() {
   const [saveOk, setSaveOk] = useState<string | null>(null);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [topicConfig, setTopicConfig] = useState<TopicConfig>({
-    schedule: "DAILY",
+    // 默认值尽量与 FREE 计划兼容，避免用户不改配置直接保存时报 402。
+    // 付费用户可在弹窗里改成 DAILY / 更高 TopN。
+    schedule: "WEEKLY",
     pushStrategy: "HYBRID",
-    pushTopN: 10,
+    pushTopN: 5,
     noiseLevel: "STANDARD",
   });
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -84,8 +90,10 @@ export default function Home() {
       if (typeof parsed.q === "string") setQ(parsed.q);
       if (typeof parsed.perSource === "number") setPerSource(parsed.perSource);
       if (typeof parsed.sourceOpenAlex === "boolean") setSourceOpenAlex(parsed.sourceOpenAlex);
-      if (typeof parsed.sourceCrossref === "boolean") setSourceCrossref(parsed.sourceCrossref);
       if (typeof parsed.sourceArxiv === "boolean") setSourceArxiv(parsed.sourceArxiv);
+      if (typeof parsed.sourceSemanticScholar === "boolean") setSourceSemanticScholar(parsed.sourceSemanticScholar);
+      if (typeof parsed.sourceDblp === "boolean") setSourceDblp(parsed.sourceDblp);
+      if (typeof parsed.sourcePubmed === "boolean") setSourcePubmed(parsed.sourcePubmed);
       if (typeof parsed.yearFrom === "string") setYearFrom(parsed.yearFrom);
       if (typeof parsed.yearTo === "string") setYearTo(parsed.yearTo);
       if (typeof parsed.venues === "string") setVenues(parsed.venues);
@@ -109,8 +117,10 @@ export default function Home() {
       q,
       perSource,
       sourceOpenAlex,
-      sourceCrossref,
       sourceArxiv,
+      sourceSemanticScholar,
+      sourceDblp,
+      sourcePubmed,
       yearFrom,
       yearTo,
       venues,
@@ -127,8 +137,10 @@ export default function Home() {
     q,
     perSource,
     sourceOpenAlex,
-    sourceCrossref,
     sourceArxiv,
+    sourceSemanticScholar,
+    sourceDblp,
+    sourcePubmed,
     yearFrom,
     yearTo,
     venues,
@@ -141,8 +153,10 @@ export default function Home() {
   function buildFilters() {
     const sources: string[] = [];
     if (sourceOpenAlex) sources.push("OPENALEX");
-    if (sourceCrossref) sources.push("CROSSREF");
     if (sourceArxiv) sources.push("ARXIV");
+    if (sourceSemanticScholar) sources.push("SEMANTIC_SCHOLAR");
+    if (sourceDblp) sources.push("DBLP");
+    if (sourcePubmed) sources.push("PUBMED");
 
     const yf = yearFrom.trim() ? Number(yearFrom.trim()) : undefined;
     const yt = yearTo.trim() ? Number(yearTo.trim()) : undefined;
@@ -175,8 +189,10 @@ export default function Home() {
     };
     const sources = Array.isArray(f.sources) ? (f.sources as string[]) : [];
     setSourceOpenAlex(sources.length === 0 ? true : sources.includes("OPENALEX"));
-    setSourceCrossref(sources.length === 0 ? true : sources.includes("CROSSREF"));
     setSourceArxiv(sources.length === 0 ? true : sources.includes("ARXIV"));
+    setSourceSemanticScholar(sources.length === 0 ? true : sources.includes("SEMANTIC_SCHOLAR"));
+    setSourceDblp(sources.length === 0 ? true : sources.includes("DBLP"));
+    setSourcePubmed(sources.length === 0 ? true : sources.includes("PUBMED"));
     setYearFrom(typeof f.yearFrom === "number" ? String(f.yearFrom) : "");
     setYearTo(typeof f.yearTo === "number" ? String(f.yearTo) : "");
     setVenues(Array.isArray(f.venues) ? (f.venues as string[]).join(", ") : "");
@@ -286,7 +302,15 @@ export default function Home() {
         }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "save_failed");
+      if (!res.ok) {
+        const msg =
+          typeof json?.message === "string"
+            ? json.message
+            : typeof json?.error === "string"
+              ? json.error
+              : "save_failed";
+        throw new Error(msg);
+      }
       setTopicConfig(config);
       setSaveOk(`已保存（${config.schedule} / ${config.pushStrategy} / Top ${config.pushTopN}）`);
       // 3秒后清除成功提示
@@ -406,10 +430,14 @@ export default function Home() {
               <SearchFilters
                 sourceOpenAlex={sourceOpenAlex}
                 setSourceOpenAlex={setSourceOpenAlex}
-                sourceCrossref={sourceCrossref}
-                setSourceCrossref={setSourceCrossref}
                 sourceArxiv={sourceArxiv}
                 setSourceArxiv={setSourceArxiv}
+                sourceSemanticScholar={sourceSemanticScholar}
+                setSourceSemanticScholar={setSourceSemanticScholar}
+                sourceDblp={sourceDblp}
+                setSourceDblp={setSourceDblp}
+                sourcePubmed={sourcePubmed}
+                setSourcePubmed={setSourcePubmed}
                 yearFrom={yearFrom}
                 setYearFrom={setYearFrom}
                 yearTo={yearTo}

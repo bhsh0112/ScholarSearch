@@ -40,18 +40,33 @@ export async function POST(req: Request) {
   const transactionId = typeof obj.transaction_id === "string" ? obj.transaction_id : null;
   if (!outTradeNo) return NextResponse.json({ code: "FAIL", message: "missing_out_trade_no" }, { status: 400 });
 
+  // amount.total（分）用于验金额
+  const amountObj = obj.amount && typeof obj.amount === "object" ? (obj.amount as Record<string, unknown>) : null;
+  const amountTotalFen = amountObj && typeof amountObj.total === "number" ? amountObj.total : null;
+
   const order = await prisma.paymentOrder.findUnique({
     where: { outTradeNo },
-    select: { id: true, status: true, userId: true, planId: true, period: true },
+    select: { id: true, status: true, userId: true, planId: true, period: true, amountCny: true, provider: true },
   });
   if (!order) return NextResponse.json({ code: "SUCCESS", message: "order_not_found_ignored" });
 
+  if (order.provider !== "WECHAT") return NextResponse.json({ code: "SUCCESS", message: "provider_mismatch_ignored" });
+
+  if (amountTotalFen != null) {
+    const expectedFen = order.amountCny * 100;
+    if (amountTotalFen !== expectedFen) {
+      console.error("wechat_notify_amount_mismatch", { outTradeNo, expectedFen, amountTotalFen });
+      return NextResponse.json({ code: "FAIL", message: "amount_mismatch" }, { status: 400 });
+    }
+  }
+
   if (tradeState === "SUCCESS") {
-    if (order.status !== "PAID") {
-      await prisma.paymentOrder.update({
-        where: { id: order.id },
-        data: { status: "PAID", providerTradeNo: transactionId ?? null, paidAt: new Date() },
-      });
+    const now = new Date();
+    const updated = await prisma.paymentOrder.updateMany({
+      where: { id: order.id, status: { not: "PAID" } },
+      data: { status: "PAID", providerTradeNo: transactionId ?? null, paidAt: now },
+    });
+    if (updated.count === 1) {
       await upsertSubscription({
         userId: order.userId,
         planId: normalizePlanId(order.planId),
@@ -62,8 +77,8 @@ export async function POST(req: Request) {
   }
 
   // 其他状态先仅记录，不做订阅开通
-  await prisma.paymentOrder.update({
-    where: { id: order.id },
+  await prisma.paymentOrder.updateMany({
+    where: { id: order.id, status: { not: "PAID" } },
     data: { status: "FAILED", providerTradeNo: transactionId ?? null },
   });
 

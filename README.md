@@ -109,4 +109,15 @@ V1 支持点击首页的“AI 生成”，把自由表述交给第三方 LLM（O
 - 使用内网穿透（例如 cloudflared/ngrok）把 `http://localhost:3000` 暴露成公网 HTTPS
 - 将 `ALIPAY_NOTIFY_URL` / `WECHATPAY_NOTIFY_URL` 临时指向该公网 URL
 
+## 支付（V1 最简）：收款码人工开通会员
+如果你不想在第一版接入支付网关回调（或没有公网 HTTPS 环境），可以使用“**静态收款码 + 人工审核开通**”：
+
+- **用户侧**：进入 `/pricing`，选择“收款码（人工开通）”，扫码付款后点击“我已付款”提交确认
+- **管理员侧**：访问 `/admin/manual-topups`，点击“通过并开通”即可为该用户开通/续费订阅
+
+需要配置：
+- `MANUAL_PAY_QR_URL`：你的收款码图片 URL（建议 https）
+- `MANUAL_PAY_QR_URL_WECHAT`：微信收款码图片 URL（可选；配置后用户可切换微信/支付宝）
+- `APP_USER_EMAIL`：管理员邮箱（用于审核权限）
+
 

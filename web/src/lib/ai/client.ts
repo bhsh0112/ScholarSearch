@@ -85,7 +85,7 @@ export async function aiExpandQuery(params: {
     "",
     "输出格式要求：只输出 JSON（不要 Markdown），并严格符合字段：",
     "- queryDraft: string",
-    "- filters?: { sources?: [OPENALEX|CROSSREF|ARXIV][], yearFrom?: number, yearTo?: number, venues?: string[], authors?: string[] }",
+    "- filters?: { sources?: [OPENALEX|ARXIV|SEMANTIC_SCHOLAR|DBLP|PUBMED][], yearFrom?: number, yearTo?: number, venues?: string[], authors?: string[] }",
     "- keywords?: string[]（可选）",
     "- mustNot?: string[]（可选：排除词建议）",
     "- rationale?: string（可选：不超过 600 字）",

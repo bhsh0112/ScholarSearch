@@ -107,6 +107,40 @@ export async function wechatCreateNativeOrder(params: {
 }
 
 /**
+ * 主动查询微信支付订单状态（通过商户侧 out_trade_no）。
+ *
+ * 用于无公网回调的本地/测试机联调：前端轮询 `/api/pay/status` 时由服务端触发查询并对账入库。
+ */
+export async function wechatQueryOrderByOutTradeNo(params: {
+  cfg: WechatPayConfig;
+  outTradeNo: string;
+}): Promise<{ tradeState: string | null; transactionId: string | null }> {
+  const path = `/v3/pay/transactions/out-trade-no/${encodeURIComponent(params.outTradeNo)}?mchid=${encodeURIComponent(
+    params.cfg.mchId,
+  )}`;
+  const { authorization } = buildAuthorization({ cfg: params.cfg, method: "GET", pathWithQuery: path, body: "" });
+
+  const res = await fetch(`https://api.mch.weixin.qq.com${path}`, {
+    method: "GET",
+    headers: {
+      Authorization: authorization,
+      Accept: "application/json",
+      "User-Agent": "ScholarSearch/1.0",
+    },
+  });
+
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`wechat_query_failed: ${res.status} ${JSON.stringify(json)}`);
+  }
+
+  const obj = json && typeof json === "object" ? (json as Record<string, unknown>) : {};
+  const tradeState = typeof obj.trade_state === "string" ? obj.trade_state : null;
+  const transactionId = typeof obj.transaction_id === "string" ? obj.transaction_id : null;
+  return { tradeState, transactionId };
+}
+
+/**
  * 验证微信支付回调签名。
  */
 export function verifyWechatNotify(params: {

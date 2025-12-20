@@ -18,7 +18,7 @@ export const SearchFiltersSchema = z
     authors: z.array(z.string().min(1).max(80)).max(10).optional(),
 
     /** 数据源限制：不选则表示全部 */
-    sources: z.array(z.enum(["OPENALEX", "CROSSREF", "ARXIV"])).optional(),
+    sources: z.array(z.enum(["OPENALEX", "ARXIV", "SEMANTIC_SCHOLAR", "DBLP", "PUBMED"])).optional(),
   })
   .strict();
 

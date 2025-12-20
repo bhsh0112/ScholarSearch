@@ -17,7 +17,7 @@ export type AggregatedWork = {
 
   /** 用于可追溯：每个来源的标识与 URL */
   sources: Array<{
-    source: "OPENALEX" | "CROSSREF" | "ARXIV";
+    source: "OPENALEX" | "ARXIV" | "SEMANTIC_SCHOLAR" | "DBLP" | "PUBMED";
     sourceId: string;
     url?: string | null;
     raw?: unknown;
